@@ -1,7 +1,7 @@
 import {mkdtemp,mkdir,cp,readFile,writeFile,readdir} from 'node:fs/promises';
 import {spawnSync} from 'node:child_process';
 import assert from 'node:assert/strict';
-import {resolve} from 'node:path';
+import {resolve,relative} from 'node:path';
 await mkdir('artifacts',{recursive:true});
 const temporary=await mkdtemp(resolve('artifacts/version-check-'));
 for(const folder of ['src','scripts'])await mkdir(`${temporary}/${folder}`);
@@ -14,5 +14,11 @@ const packaged=await readdir('_site');
 assert.deepEqual(packaged.sort(),['.nojekyll','CNAME','assets','index.html','list','manifest.webmanifest','src'].sort());
 assert.equal(await readFile('_site/CNAME','utf8'),'tempalist.sikumilab.com\n');
 assert.equal(await readFile('_site/index.html','utf8'),await readFile('_site/list/index.html','utf8'));
-for(const name of await readdir('src'))assert.deepEqual(await readFile(`src/${name}`),await readFile(`_site/src/${name}`));
+const sourceEntries=await readdir('src',{recursive:true,withFileTypes:true});
+for(const entry of sourceEntries){
+  if(!entry.isFile())continue;
+  const source=resolve(entry.parentPath,entry.name);
+  const destination=resolve('_site','src',relative(resolve('src'),source));
+  assert.deepEqual(await readFile(source),await readFile(destination));
+}
 console.log('Version mismatch rejected; static package contains current app files only: OK');

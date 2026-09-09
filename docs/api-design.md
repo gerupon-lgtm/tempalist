@@ -2,12 +2,12 @@
 
 通知API通信は**通知共通基盤 v2 のみ**。業務データの読み書きはすべて端末内で完結する。UIでは別途Google Fontsを読み込み、失敗時は標準フォントへフォールバックする。
 
-- Base URL: 共通基盤管理者から受け取るAPI Origin
+- Base URL: `https://api.atoqueue.sikumilab.com`
 - `appId`: `tempalist`
 - Origin: `https://tempalist.sikumilab.com`（開発時は localhost も登録が必要）
 - 正典: `notification-platform-v2.md`。本書と食い違う場合は仕様書が優先
 - 正式名称: `!=テンパリスト` / 英語表記: NOT EQUAL TEMPALIST
-- 共通基盤v2は別途実装中。以下は連携予定の契約であり、稼働確認・連携検証は後回し。`tempalist` と新Originの外部登録完了は未確認
+- 2026-09-10: APIへ到達しHTTP 404 `APP_NOT_FOUND` を確認。発案者が別タスクでアプリ登録する。v0.1.7は `src/notification/api.js` に公開鍵GETとstrict応答検証を実装し、設定画面の明示操作で接続確認できる。端末登録以降は未実装。登録内容はdeployment.md参照
 
 ## 1. Registry申請内容（共通基盤管理者へ依頼する）
 

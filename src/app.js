@@ -8,6 +8,18 @@ import {escapeHTML as e,openDialog,confirmAction,toast,download,field} from './u
 import * as view from './views.js';
 import {attachReorder} from './reorder.js';
 import {attachCardInteractions} from './card-interactions.js';
+import {createNotificationApi} from './notification/api.js';
+const notificationApi=createNotificationApi();
+async function checkNotificationConnection(button){
+  const status=document.querySelector('#notification-connection-status');
+  if(!status||button.disabled)return;
+  button.disabled=true;status.textContent='接続を確認しています…';
+  try{
+    await notificationApi.getPublicKey();
+    status.textContent='通知基盤に接続できました。通知の有効化は、連携の準備完了後にご案内します。';
+  }catch(error){status.textContent=error.message;}
+  finally{button.disabled=false;}
+}
 const main=document.querySelector('main');
 let lastChecklistId=null;
 try{lastChecklistId=sessionStorage.getItem('tempalist:last-checklist');}catch{/* Navigation memory is optional. */}
@@ -147,6 +159,7 @@ main.addEventListener('click',event=>{
   const name=node.dataset.action,{kind,id,entity}=current(),row=node.closest('[data-item]'),itemId=row?.dataset.item,index=Number(row?.dataset.index);
   action(async()=>{
     switch(name){
+      case 'check-notification-connection':return checkNotificationConnection(node);
       case 'new-list':return newList();case 'from-template':return newList(node.dataset.id);
       case 'new-template':return newTemplate();
       case 'list-tab':listTab=node.dataset.value;return render();
