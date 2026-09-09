@@ -17,13 +17,21 @@ try{
   await page.waitForFunction(()=>JSON.parse(localStorage.getItem('tempalist:data')).checklists[0].items[0].checked);
   await page.evaluate(()=>document.fonts.ready);
   const style=await page.evaluate(()=>({
-    fontLoaded:document.fonts.check('400 16px "Zen Kaku Gothic New"','始業前点検'),
+    fontLoaded:document.fonts.check('400 16px "Noto Sans JP"','始業前点検'),
     background:getComputedStyle(document.documentElement).backgroundColor,
     button:getComputedStyle(document.querySelector('button.primary')).backgroundColor,
     checkbox:getComputedStyle(document.querySelector('input:checked')).backgroundColor,
+    buttonText:getComputedStyle(document.querySelector('button.primary')).color,
+    buttonWeight:getComputedStyle(document.querySelector('button.primary')).fontWeight,
+    bodyWeight:getComputedStyle(document.documentElement).fontWeight,
+    itemSize:getComputedStyle(document.querySelector('.item-label')).fontSize,
   }));
   assert.equal(style.checkbox,style.button);
-  assert.equal(style.background,'rgb(252, 250, 249)');
+  assert.equal(style.buttonText,'rgb(255, 255, 255)');
+  assert.equal(style.buttonWeight,'700');
+  assert.equal(style.bodyWeight,'500');
+  assert.equal(style.itemSize,'16px');
+  assert.equal(style.background,'rgb(255, 254, 254)');
   await page.emulateMedia({colorScheme:'dark',reducedMotion:'reduce'});
   assert.equal(await page.evaluate(()=>getComputedStyle(document.documentElement).backgroundColor),style.background);
   assert.equal(await page.evaluate(()=>getComputedStyle(document.querySelector('#toast')).transitionDuration),'0s');
@@ -32,7 +40,7 @@ try{
   const cdp=await context.newCDPSession(page);
   const touch=(type,x,y)=>cdp.send('Input.dispatchTouchEvent',{type,touchPoints:type==='touchEnd'||type==='touchCancel'?[]:[{x,y}]});
   let before=await saved();
-  let handle=page.locator('[data-index="0"] .drag-handle');
+  let handle=page.locator('[data-index="0"] .item-copy');
   await handle.scrollIntoViewIfNeeded();
   let box=await handle.boundingBox(),x=box.x+box.width/2,y=box.y+box.height/2;
   await touch('touchStart',x,y);await touch('touchEnd');
@@ -55,12 +63,30 @@ try{
   await page.reload();assert.deepEqual((await saved()).items,after.items);
 
   // A cancelled touch must not commit the previewed order.
-  handle=page.locator('[data-index="0"] .drag-handle');await handle.scrollIntoViewIfNeeded();
+  handle=page.locator('[data-index="0"] .item-copy');await handle.scrollIntoViewIfNeeded();
   box=await handle.boundingBox();x=box.x+box.width/2;y=box.y+box.height/2;
   await touch('touchStart',x,y);await page.locator('.drag-preview').waitFor();
   await touch('touchMove',x,y+120);await touch('touchCancel');
   assert.equal(await page.locator('.drag-preview').count(),0);
   assert.deepEqual((await saved()).items,after.items);
+
+  // Right-side arrows remain direct taps; their whole region is excluded from dragging.
+  let controls=page.locator('[data-index="0"] .row-controls');
+  await controls.scrollIntoViewIfNeeded();
+  box=await controls.boundingBox();x=box.x+box.width/2;y=box.y+box.height/2;
+  await touch('touchStart',x,y);await page.waitForTimeout(550);
+  assert.equal(await page.locator('.drag-preview').count(),0);await touch('touchCancel');
+  const down=page.locator('[data-index="0"]').getByRole('button',{name:'下へ',exact:true});
+  await down.tap();
+  await page.waitForFunction(id=>JSON.parse(localStorage.getItem('tempalist:data')).checklists[0].items[1].id===id,after.items[0].id);
+  await page.locator('[data-index="1"]').getByRole('button',{name:'上へ',exact:true}).tap();
+  await page.waitForFunction(id=>JSON.parse(localStorage.getItem('tempalist:data')).checklists[0].items[0].id===id,after.items[0].id);
+  assert.deepEqual((await saved()).items,after.items);
+
+  const checkbox=page.locator('[data-index="0"] .row-check');await checkbox.scrollIntoViewIfNeeded();
+  box=await checkbox.boundingBox();
+  await touch('touchStart',box.x+box.width/2,box.y+box.height/2);await page.waitForTimeout(550);
+  assert.equal(await page.locator('.drag-preview').count(),0);await touch('touchCancel');
 
   // Swiping the text remains native scrolling, with no lifted card.
   await page.evaluate(()=>scrollTo(0,0));

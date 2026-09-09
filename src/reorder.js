@@ -1,13 +1,18 @@
-// A dedicated handle preserves ordinary scrolling and checkbox taps on the row.
+// Touch Events let a pending press remain native scrolling until the card is lifted.
 export function attachReorder(container, move) {
-  let active=null, timer=0, frame=0;
+  let active=null,timer=0,frame=0;
+  const excluded='.row-check,.row-controls,input,button,a,label,summary,details';
+  function rowAt(target) {
+    if(target.closest(excluded))return null;
+    return target.closest('.item-row[data-index]');
+  }
   function stop() {
     clearTimeout(timer);cancelAnimationFrame(frame);
     const previous=active;active=null;
     container.querySelectorAll('[data-drop]').forEach(row=>delete row.dataset.drop);
     previous?.row.classList.remove('dragging','drag-pending');
     previous?.ghost?.remove();
-    if(previous?.handle.hasPointerCapture(previous.pointerId))previous.handle.releasePointerCapture(previous.pointerId);
+    if(previous?.input==='pointer'&&previous.row.hasPointerCapture(previous.id))previous.row.releasePointerCapture(previous.id);
   }
   function target() {
     const rows=[...container.querySelectorAll('[data-index]')];
@@ -40,31 +45,53 @@ export function attachReorder(container, move) {
     row.classList.remove('drag-pending');row.classList.add('dragging');
     frame=requestAnimationFrame(scroll);
   }
-  function down(event) {
-    const handle=event.target.closest('.drag-handle');
-    if(active||!handle||event.button!==0)return;
-    const row=handle.closest('[data-index]');
-    if(!row)return;
-    active={row,handle,pointerId:event.pointerId,from:Number(row.dataset.index),to:Number(row.dataset.index),x:event.clientX,y:event.clientY,startX:event.clientX,startY:event.clientY};
-    handle.setPointerCapture(event.pointerId);row.classList.add('drag-pending');
-    timer=setTimeout(lift,450);event.preventDefault();
+  function begin(row,input,id,x,y) {
+    active={row,input,id,from:Number(row.dataset.index),to:Number(row.dataset.index),x,y,startX:x,startY:y};
+    row.classList.add('drag-pending');timer=setTimeout(lift,450);
   }
-  function moving(event) {
-    if(!active||event.pointerId!==active.pointerId)return;
-    active.x=event.clientX;active.y=event.clientY;
-    const dx=active.x-active.startX,dy=active.y-active.startY;
+  function moving(x,y) {
+    active.x=x;active.y=y;
+    const dx=x-active.startX,dy=y-active.startY;
     if(!active.ghost){if(Math.hypot(dx,dy)>10)stop();return;}
-    active.ghost.style.transform=`translate(${dx}px, ${dy}px)`;target();event.preventDefault();
+    active.ghost.style.transform=`translate(${dx}px, ${dy}px)`;target();
   }
-  function up(event) {
-    if(!active||event.pointerId!==active.pointerId)return;
+  function finish() {
     const {from,to,ghost}=active;stop();if(ghost&&from!==to)move(from,to);
   }
-  function cancel(event){if(active&&event.pointerId===active.pointerId)stop();}
+  function down(event) {
+    if(event.pointerType==='touch'||active||event.button!==0)return;
+    const row=rowAt(event.target);if(!row)return;
+    begin(row,'pointer',event.pointerId,event.clientX,event.clientY);
+    row.setPointerCapture(event.pointerId);event.preventDefault();
+  }
+  function pointerMove(event) {
+    if(active?.input!=='pointer'||event.pointerId!==active.id)return;
+    moving(event.clientX,event.clientY);event.preventDefault();
+  }
+  function up(event){if(active?.input==='pointer'&&event.pointerId===active.id)finish();}
+  function cancel(event){if(active?.input==='pointer'&&event.pointerId===active.id)stop();}
+  function touchStart(event) {
+    if(event.touches.length!==1){stop();return;}
+    if(active)return;
+    const row=rowAt(event.target);if(!row)return;
+    const touch=event.changedTouches[0];begin(row,'touch',touch.identifier,touch.clientX,touch.clientY);
+  }
+  function touchMove(event) {
+    if(active?.input!=='touch')return;
+    if(event.touches.length!==1){stop();return;}
+    const touch=[...event.changedTouches].find(t=>t.identifier===active.id);if(!touch)return;
+    if(active.ghost){
+      if(!event.cancelable){stop();return;}
+      event.preventDefault();
+    }
+    moving(touch.clientX,touch.clientY);
+  }
+  function touchEnd(event){if(active?.input==='touch'&&[...event.changedTouches].some(t=>t.identifier===active.id))finish();}
+  function touchCancel(){if(active?.input==='touch')stop();}
   function escape(event){if(event.key==='Escape')stop();}
-  function contextMenu(event){if(event.target.closest('.drag-handle'))event.preventDefault();}
-  const listeners={pointerdown:down,pointermove:moving,pointerup:up,pointercancel:cancel,lostpointercapture:cancel,contextmenu:contextMenu};
-  Object.entries(listeners).forEach(([type,listener])=>container.addEventListener(type,listener));
+  function contextMenu(event){if(rowAt(event.target))event.preventDefault();}
+  const listeners={pointerdown:down,pointermove:pointerMove,pointerup:up,pointercancel:cancel,lostpointercapture:cancel,touchstart:touchStart,touchmove:touchMove,touchend:touchEnd,touchcancel:touchCancel,contextmenu:contextMenu};
+  Object.entries(listeners).forEach(([type,listener])=>container.addEventListener(type,listener,{passive:false}));
   document.addEventListener('keydown',escape);window.addEventListener('blur',stop);
   return ()=>{
     stop();Object.entries(listeners).forEach(([type,listener])=>container.removeEventListener(type,listener));

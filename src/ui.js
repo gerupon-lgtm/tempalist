@@ -4,6 +4,8 @@ export function icon(name, size = 20) {
     check:'<path d="m5 12 4 4L19 6"/>',
     list:'<path d="m3 6 2 2 3-4M11 6h10M3 14l2 2 3-4M11 14h10M11 21h10"/>',
     plus:'<path d="M12 5v14M5 12h14"/>',
+    up:'<path d="M12 19V5m-6 6 6-6 6 6"/>',
+    down:'<path d="M12 5v14m-6-6 6 6 6-6"/>',
     grip:'<path d="M8 5h.01M16 5h.01M8 12h.01M16 12h.01M8 19h.01M16 19h.01" stroke-width="3"/>',
     arrow:'<path d="m9 5 7 7-7 7"/>',
     back:'<path d="m14 5-7 7 7 7"/>',

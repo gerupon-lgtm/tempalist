@@ -6,10 +6,10 @@ export const heading=(title,sub,action='')=>`<div class="page-heading"><div><h1>
 export function items(entity,kind) {
   const locked=kind==='checklist' && entity.status==='settled';
   if(!entity.items.length)return '<div class="empty-state"><h2>項目を追加しましょう</h2><p>ひとつずつ、必要な確認を書き留められます。</p></div>';
-  return `${locked?'':'<p class="reorder-hint">右端を長押しして移動 ／ ⋯から上下移動</p>'}<ol class="items">${entity.items.map((item,index)=>`<li class="item-row ${item.checked?'checked':''}" data-index="${index}" data-item="${item.id}">
+  return `${locked?'':'<p class="reorder-hint">カードを長押しして移動 ／ 右端の↑↓でも移動</p>'}<ol class="items">${entity.items.map((item,index)=>`<li class="item-row ${locked?'':'reorderable'} ${item.checked?'checked':''}" data-index="${index}" data-item="${item.id}">
     ${kind==='checklist'?`<label class="row-check"><input type="checkbox" data-check="${item.id}" aria-label="${e(item.label)}" ${item.checked?'checked':''} ${locked?'disabled':''}></label>`:`<span class="item-number">${index+1}</span>`}
     <div class="item-copy"><span class="item-label">${e(item.label)}</span>${item.note?`<span class="item-note">${e(item.note)}</span>`:''}</div>
-    ${locked?'':`<details class="item-menu"><summary aria-label="${e(item.label)}の操作">⋯</summary><div class="menu-actions">${button('edit-item','編集')}${button('up','上へ','',index===0?'disabled':'')}${button('down','下へ','',index===entity.items.length-1?'disabled':'')}${button('delete-item','削除','danger')}</div></details><button class="drag-handle" title="長押しして移動" aria-label="${e(item.label)}を並べ替え">${icon('grip')}</button>`}
+    ${locked?'':`<div class="row-controls"><details class="item-menu"><summary aria-label="${e(item.label)}の操作">⋯</summary><div class="menu-actions">${button('edit-item','編集')}${button('delete-item','削除','danger')}</div></details><div class="row-stepper">${button('up',icon('up',18),'step-button',`aria-label="上へ" title="上へ" ${index===0?'disabled':''}`)}${button('down',icon('down',18),'step-button',`aria-label="下へ" title="下へ" ${index===entity.items.length-1?'disabled':''}`)}</div></div>`}
   </li>`).join('')}</ol>`;
 }
 export function listCard(list) {

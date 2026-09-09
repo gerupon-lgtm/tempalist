@@ -24,7 +24,7 @@ try{
  await page.waitForFunction(()=>document.querySelector('[data-index="0"] .item-label')?.textContent==='確認 2');
  await page.reload();assert.equal(await page.locator('[data-index="1"] .item-note').textContent(),'安全に使うための補足');
  // Actual pointer drag, autoscroll near the viewport bottom, and cancellation.
- const handle=page.locator('[data-index="0"] .drag-handle');await handle.scrollIntoViewIfNeeded();
+ const handle=page.locator('[data-index="0"] .item-copy');await handle.scrollIntoViewIfNeeded();
  let box=await handle.boundingBox();await page.mouse.move(box.x+box.width/2,box.y+box.height/2);await page.mouse.down();
  await page.locator('.drag-preview').waitFor();
  const startScroll=await page.evaluate(()=>scrollY);await page.mouse.move(335,805,{steps:8});
