@@ -6,10 +6,10 @@ export const heading=(title,sub,action='')=>`<div class="page-heading"><div><h1>
 export function items(entity,kind) {
   const locked=kind==='checklist' && entity.status==='settled';
   if(!entity.items.length)return '<div class="empty-state"><h2>項目を追加しましょう</h2><p>ひとつずつ、必要な確認を書き留められます。</p></div>';
-  return `<ol class="items">${entity.items.map((item,index)=>`<li class="item-row ${item.checked?'checked':''}" data-index="${index}" data-item="${item.id}">
+  return `${locked?'':'<p class="reorder-hint">右端を長押しして移動 ／ ⋯から上下移動</p>'}<ol class="items">${entity.items.map((item,index)=>`<li class="item-row ${item.checked?'checked':''}" data-index="${index}" data-item="${item.id}">
     ${kind==='checklist'?`<label class="row-check"><input type="checkbox" data-check="${item.id}" aria-label="${e(item.label)}" ${item.checked?'checked':''} ${locked?'disabled':''}></label>`:`<span class="item-number">${index+1}</span>`}
     <div class="item-copy"><span class="item-label">${e(item.label)}</span>${item.note?`<span class="item-note">${e(item.note)}</span>`:''}</div>
-    ${locked?'':`<details class="item-menu"><summary aria-label="${e(item.label)}の操作">⋯</summary><div class="menu-actions">${button('edit-item','編集')}${button('up','上へ','',index===0?'disabled':'')}${button('down','下へ','',index===entity.items.length-1?'disabled':'')}${button('delete-item','削除','danger')}</div></details><button class="drag-handle" aria-label="${e(item.label)}を並べ替え">${icon('grip')}</button>`}
+    ${locked?'':`<details class="item-menu"><summary aria-label="${e(item.label)}の操作">⋯</summary><div class="menu-actions">${button('edit-item','編集')}${button('up','上へ','',index===0?'disabled':'')}${button('down','下へ','',index===entity.items.length-1?'disabled':'')}${button('delete-item','削除','danger')}</div></details><button class="drag-handle" title="長押しして移動" aria-label="${e(item.label)}を並べ替え">${icon('grip')}</button>`}
   </li>`).join('')}</ol>`;
 }
 export function listCard(list) {

@@ -26,6 +26,7 @@ try{
  // Actual pointer drag, autoscroll near the viewport bottom, and cancellation.
  const handle=page.locator('[data-index="0"] .drag-handle');await handle.scrollIntoViewIfNeeded();
  let box=await handle.boundingBox();await page.mouse.move(box.x+box.width/2,box.y+box.height/2);await page.mouse.down();
+ await page.locator('.drag-preview').waitFor();
  const startScroll=await page.evaluate(()=>scrollY);await page.mouse.move(335,805,{steps:8});
  await page.waitForFunction(start=>scrollY>start+100,startScroll);
  await page.mouse.up();await page.waitForFunction(()=>!document.querySelector('.dragging'));
@@ -95,7 +96,7 @@ try{
  await page.emulateMedia({colorScheme:'dark',reducedMotion:'reduce'});
  assert.equal(await page.evaluate(()=>matchMedia('(prefers-reduced-motion: reduce)').matches),true);
  assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
- await page.screenshot({path:'artifacts/settings-dark-mobile.png',fullPage:true});
+ await page.screenshot({path:'artifacts/settings-light-in-dark-os-mobile.png',fullPage:true});
  assert.deepEqual(errors,[]);
- console.log('Browser regressions: 50 items, edits/reorder/autoscroll, deadlines, lock, quota/cancel/retry, stale edits, shared XSS/draft, backup/repeated import, dark/reduced motion: OK');
+ console.log('Browser regressions: 50 items, edits/reorder/autoscroll, deadlines, lock, quota/cancel/retry, stale edits, shared XSS/draft, backup/repeated import, light palette in dark OS/reduced motion: OK');
 }finally{await browser.close();}
