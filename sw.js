@@ -1,4 +1,4 @@
-const VERSION='0.2.0';
+const VERSION='0.2.1';
 const CACHE=`tempalist-shell-${VERSION}`;
 const SHELL=['/','/index.html','/manifest.webmanifest','/assets/icon.svg','/assets/icon-192.png','/assets/icon-512.png',
  '/src/app.js','/src/card-interactions.js','/src/dates.js','/src/domain.js','/src/reorder.js','/src/samples.js','/src/storage.js','/src/styles.css','/src/transfer.js','/src/ui.js','/src/version.js','/src/views.js',

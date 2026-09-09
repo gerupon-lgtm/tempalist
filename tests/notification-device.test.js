@@ -20,3 +20,17 @@ it('reuses an existing subscription and can unsubscribe it',async()=>{
  const manager={getSubscription:async()=>sub,subscribe:vi.fn()};e.navigator.serviceWorker.ready=Promise.resolve({pushManager:manager});
  const d=createBrowserDevice(e);expect(await d.subscribe('BA'+'A'.repeat(85))).toEqual({endpoint:'existing'});expect(manager.subscribe).not.toHaveBeenCalled();await d.unsubscribe();expect(sub.unsubscribe).toHaveBeenCalled();
 });
+it('shows a Japanese error when the browser push service rejects registration',async()=>{
+ const e=env();e.navigator.serviceWorker.ready=Promise.resolve({pushManager:{getSubscription:async()=>null,subscribe:async()=>{throw new Error('internal push endpoint');}}});
+ await expect(createBrowserDevice(e).subscribe('BA'+'A'.repeat(85))).rejects.toThrow('通知サービスに登録できませんでした');
+});
+it('stops waiting when the browser push service never responds',async()=>{
+ vi.useFakeTimers();try{
+  const e=env();e.navigator.serviceWorker.ready=Promise.resolve({pushManager:{getSubscription:async()=>null,subscribe:()=>new Promise(()=>{})}});
+  const result=createBrowserDevice(e).subscribe('BA'+'A'.repeat(85)).catch(error=>error);
+  await vi.advanceTimersByTimeAsync(20000);
+  // Avoid waiting forever on the old implementation while still asserting the user-visible result.
+  const outcome=await Promise.race([result,Promise.resolve(null)]);
+  expect(outcome?.message).toContain('時間がかかっています');
+ }finally{vi.useRealTimers();}
+});

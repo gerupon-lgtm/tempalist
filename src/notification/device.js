@@ -15,11 +15,18 @@ export function createBrowserDevice(env=globalThis){
   if(permission!=='granted')throw new Error('通知が許可されていません。ブラウザのサイト設定から通知を許可してください。');
  }
  async function subscribe(publicKey){
-  const registration=await ready();let sub=await registration.pushManager.getSubscription();
-  const key=Uint8Array.from(atob(publicKey.replace(/-/g,'+').replace(/_/g,'/')+'='.repeat((4-publicKey.length%4)%4)),c=>c.charCodeAt(0));
-  if(sub?.options?.applicationServerKey){const current=new Uint8Array(sub.options.applicationServerKey);if(current.length!==key.length||current.some((b,i)=>b!==key[i])){await sub.unsubscribe();sub=null;}}
-  sub??=await registration.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:key});
-  return sub.toJSON();
+  const registration=await ready();let timer;
+  const attempt=async()=>{
+   try{
+    let sub=await registration.pushManager.getSubscription();
+    const key=Uint8Array.from(atob(publicKey.replace(/-/g,'+').replace(/_/g,'/')+'='.repeat((4-publicKey.length%4)%4)),c=>c.charCodeAt(0));
+    if(sub?.options?.applicationServerKey){const current=new Uint8Array(sub.options.applicationServerKey);if(current.length!==key.length||current.some((b,i)=>b!==key[i])){await sub.unsubscribe();sub=null;}}
+    sub??=await registration.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:key});
+    return sub.toJSON();
+   }catch{throw new Error('通知サービスに登録できませんでした。通信状態とブラウザの通知設定を確認して、もう一度お試しください。');}
+  };
+  try{return await Promise.race([attempt(),new Promise((_,reject)=>{timer=setTimeout(()=>reject(new Error('通知サービスへの登録に時間がかかっています。通信状態を確認して、もう一度お試しください。')),20000);})]);}
+  finally{clearTimeout(timer);}
  }
  return {
   requestPermission,subscribe,permission:()=>env.Notification?.permission??'denied',
