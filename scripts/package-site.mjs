@@ -1,0 +1,10 @@
+import { mkdir, cp, writeFile } from 'node:fs/promises';
+import { APP_VERSION } from '../src/version.js';
+import './check.mjs';
+await mkdir('_site/list', {recursive:true});
+for (const file of ['index.html','manifest.webmanifest']) await cp(file, `_site/${file}`);
+for (const dir of ['src','assets']) await cp(dir, `_site/${dir}`, {recursive:true});
+await cp('index.html', '_site/list/index.html');
+await writeFile('_site/CNAME','tempalist.sikumilab.com\n');
+await writeFile('_site/.nojekyll','');
+console.log(`Static site ${APP_VERSION} prepared in _site (no bundling).`);

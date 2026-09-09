@@ -1,0 +1,35 @@
+import { chromium } from 'playwright';
+import assert from 'node:assert/strict';
+import { mkdir } from 'node:fs/promises';
+const browser=await chromium.launch({channel:'chrome',headless:true});
+const context=await browser.newContext({viewport:{width:375,height:812},timezoneId:'Asia/Tokyo'});
+const page=await context.newPage();
+try {
+  await page.goto('http://127.0.0.1:4173');
+  await page.getByRole('button',{name:'リストを作る',exact:true}).first().click({timeout:5000});
+  await page.getByLabel('タイトル',{exact:true}).fill('始業前の確認');
+  await page.getByRole('button',{name:'作成する',exact:true}).click();
+  await page.getByRole('button',{name:'項目を追加',exact:true}).click();
+  await page.getByLabel('項目名',{exact:true}).fill('周囲を確認');
+  await page.getByLabel('メモ',{exact:true}).fill('通路を空ける');
+  await page.getByRole('button',{name:'保存する',exact:true}).click();
+  await page.getByRole('checkbox',{name:'周囲を確認'}).check();
+  await page.waitForFunction(()=>JSON.parse(localStorage.getItem('tempalist:data')).checklists[0].items[0].checked);
+  await page.reload();
+  assert.equal(await page.getByRole('checkbox',{name:'周囲を確認'}).isChecked(),true);
+  await page.getByRole('button',{name:'完了を確定する',exact:true}).click();
+  await page.getByRole('link',{name:/始業前の確認/}).click();
+  assert.equal(await page.getByRole('checkbox',{name:'周囲を確認'}).isDisabled(),true);
+  await page.getByRole('button',{name:'再開する',exact:true}).click();
+  await page.waitForFunction(()=>document.querySelector('[data-check]')?.disabled===false);
+  assert.equal(await page.getByRole('checkbox',{name:'周囲を確認'}).isChecked(),true);
+  assert.equal(await page.getByRole('checkbox',{name:'周囲を確認'}).isDisabled(),false);
+  assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
+  await mkdir('artifacts',{recursive:true});
+  await page.screenshot({path:'artifacts/checklist-mobile.png',fullPage:true});
+  await page.getByRole('link',{name:'リスト',exact:true}).click();
+  await page.screenshot({path:'artifacts/home-mobile.png',fullPage:true});
+  await page.setViewportSize({width:1280,height:900});
+  await page.screenshot({path:'artifacts/home-desktop.png',fullPage:true});
+  console.log('Browser: creation, item edit, persistence, settlement, reopen and mobile layout OK');
+} finally { await browser.close(); }
