@@ -41,9 +41,10 @@ export function detail(entity,kind) {
   const checklist=kind==='checklist',locked=checklist&&entity.status==='settled',checked=entity.items.filter(i=>i.checked).length;
   return `<a class="back" href="#/${checklist?'lists':'templates'}">${icon('back',16)} 一覧に戻る</a>`+
     heading(entity.title??entity.name,checklist?'ひとつずつ確認していきましょう。':`${statusName[entity.status]} · チェックリストのひな型`,locked?'':button('edit-meta','編集'))+
-    (locked?`<div class="lock-note">${icon('check')} 完了 ${e(formatDateTime(entity.settledAt))} · 編集するには再開してください。</div>`:'')+
+    (locked?`<div class="lock-note">${icon('check')} 完了 ${e(formatDateTime(entity.settledAt))} · 備考はこのまま編集できます。項目を変更するには再開してください。</div>`:'')+
     (checklist?`<div class="detail-info"><div><p>${icon('clock',18)} ${e(formatDateTime(entity.dueAt,{dateOnly:!entity.dueHasTime}))}</p><p class="notification-note">通知：${entity.notificationEnabled?'ON':'OFF'} ${locked?'':button('notification-settings','通知を設定','notification-link')}</p></div><span class="progress-count">${checked} / ${entity.items.length}</span></div>`:`<div class="actions template-actions">${entity.status==='active'?button('from-template','この型でリストを作る','primary',`data-id="${entity.id}"`):''}${button('duplicate','複製')}${button('share','共有')}</div>`)+
     orderLockControl(entity,kind)+items(entity,kind)+(locked?'':button('add-item',`${icon('plus',18)} 項目を追加`,'add-item'))+
+    (checklist?`<section class="checklist-remarks" aria-labelledby="remarks-label"><label id="remarks-label" for="checklist-remarks">リスト全体の備考</label><textarea id="checklist-remarks" rows="3" aria-describedby="remarks-help remarks-status" placeholder="確認事項や申し送りを記入">${e(entity.remarks)}</textarea><p id="remarks-help" class="secondary-text">完了前・完了後とも編集できます。</p><div class="actions">${button('save-remarks','備考を保存','','disabled')}<span id="remarks-status" role="status" class="secondary-text">保存済み</span></div>${button('export-checklist','メール・記録を書き出す','record-export')}</section>`:'')+
     `<div class="detail-bottom"><div class="actions">${checklist?button('write-back','テンプレートに書き戻す'):''}${button('delete-entity',checklist?'リストを削除':'テンプレートを削除','danger-link')}</div>${checklist?button(locked?'reopen':'settle',locked?'再開する':'完了を確定する','primary'):''}</div>`;
 }
 export function settings(state,bytes,version) {

@@ -43,6 +43,8 @@ function checklist(overrides = {}) {
   return {
     id: CHECKLIST_ID,
     title: '旅行',
+    remarks: '',
+    remarksUpdatedAt: null,
     orderLocked: false,
     sourceTemplateId: TEMPLATE_ID,
     items: [{ id: CHECKLIST_ITEM_ID, label: '財布', note: '', checked: false }],

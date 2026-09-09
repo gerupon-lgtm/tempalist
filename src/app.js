@@ -3,6 +3,7 @@ import {parseDeadline,deadlineFields,getTimeZone} from './dates.js';
 import {createStore,storageUsage,WARNING_BYTES,StorageFailure} from './storage.js';
 import {exportBackup,importBackup,shareTemplate,readSharedTemplate,parseTransfer} from './transfer.js';
 import {APP_VERSION,COPYRIGHT} from './version.js';
+import {createChecklistRecord} from './checklist-record.js';
 import {SAMPLE_TEMPLATES} from './samples.js';
 import {escapeHTML as e,openDialog,confirmAction,toast,download,field} from './ui.js';
 import * as view from './views.js';
@@ -51,6 +52,36 @@ async function checkNotificationConnection(button){
   finally{button.disabled=false;}
 }
 const main=document.querySelector('main');
+const remarksDrafts=new Map();
+function refreshRemarks(){
+  const {kind,id,entity}=current(),input=main.querySelector('#checklist-remarks');
+  if(kind!=='checklist'||!entity||!input)return;
+  const draft=remarksDrafts.get(id);
+  if(draft)input.value=draft.value;
+  const dirty=Boolean(draft);
+  main.querySelector('[data-action=save-remarks]').disabled=!dirty;
+  main.querySelector('#remarks-status').textContent=dirty?'未保存（完了・書き出し時にも保存します）':'保存済み';
+}
+async function saveRemarks(id){
+  const draft=remarksDrafts.get(id);if(!draft)return;
+  const {value,base,baseTime}=draft;
+  const saved=await commit(s=>domain.updateChecklistRemarks(s,id,value),s=>{
+    const list=entityIn(s,'checklist',id);
+    return list&&list.remarks===base&&list.remarksUpdatedAt===baseTime;
+  });
+  const latest=remarksDrafts.get(id);
+  if(latest?.value===value)remarksDrafts.delete(id);
+  else if(latest){latest.base=value;latest.baseTime=entityIn(saved,'checklist',id).remarksUpdatedAt;}
+  refreshRemarks();
+}
+main.addEventListener('input',event=>{
+  if(event.target.id!=='checklist-remarks')return;
+  const {id,entity}=current(),existing=remarksDrafts.get(id);
+  const draft={value:event.target.value,base:existing?.base??entity.remarks,baseTime:existing?existing.baseTime:entity.remarksUpdatedAt};
+  if(draft.value===draft.base)remarksDrafts.delete(id);else remarksDrafts.set(id,draft);
+  refreshRemarks();
+});
+window.addEventListener('beforeunload',event=>{if(remarksDrafts.size){event.preventDefault();event.returnValue='';}});
 let lastChecklistId=null;
 try{lastChecklistId=sessionStorage.getItem('tempalist:last-checklist');}catch{/* Navigation memory is optional. */}
 function rememberChecklist(page,id){
@@ -135,6 +166,27 @@ function share(){
   dialog.querySelector('#share-json').onclick=()=>download('tempalist-template.json',data.json);
   const copy=dialog.querySelector('#copy-link');if(copy)copy.onclick=async()=>{try{await navigator.clipboard.writeText(data.url);toast('リンクをコピーしました');}catch{dialog.querySelector('textarea').select();toast('リンクを選択しました。コピーしてください');}};
 }
+async function exportChecklist(id){
+  await saveRemarks(id);
+  const data=createChecklistRecord(entityIn(store.read(),'checklist',id));
+  const file=new File([data.json],data.jsonName,{type:'application/json'});
+  let canShare=false;try{canShare=Boolean(navigator.share&&navigator.canShare?.({files:[file]}));}catch{/* File sharing is optional. */}
+  const mailto='mailto:?subject='+encodeURIComponent(data.subject)+'&body='+encodeURIComponent(data.text.replace(/\r?\n/g,'\r\n'));
+  const shortMail=mailto.length<=1800;
+  const dialog=openDialog('メール・記録を書き出す',`<p>現在の内容を出力します。宛先の指定と送信はメールアプリで行ってください。</p>${field('件名',`<input id="record-subject" readonly value="${e(data.subject)}">`)}${field('本文',`<textarea id="record-body" class="record-body" readonly>${e(data.text)}</textarea>`)}<div class="actions">${canShare?'<button type="button" class="primary" id="record-share">メールアプリへ共有（JSON付き）</button>':''}<button type="button" id="record-json">JSONを保存</button><button type="button" id="record-copy-subject">件名をコピー</button><button type="button" id="record-copy">本文をコピー</button></div><p class="secondary-text">共有先によって件名・本文・添付の扱いが異なります。送信前に内容とJSON添付を確認してください。</p><details class="record-alternatives"><summary>共有できない場合・PCで送る場合</summary><p>JSONを保存し、メールに添付してください。${shortMail?'':'長い本文は「本文をコピー」で貼り付けてください。'}</p><a class="button" href="${e(shortMail?mailto:'mailto:?subject='+encodeURIComponent(data.subject))}">メールを開く（添付は手動）</a><p>対応するメールソフトでは、本文とJSONが入ったメールファイルも使えます。開いた後の編集方法はソフトによって異なります。</p><button type="button" id="record-eml">JSON添付済みメール（.eml）を保存</button></details><p class="secondary-text">完了日時は端末の時計に基づきます。署名付きの証明ではありません。</p>`,{cancel:'閉じる'});
+  dialog.querySelector('#record-json').onclick=()=>download(data.jsonName,data.json);
+  dialog.querySelector('#record-eml').onclick=()=>download(data.emlName,data.eml,'message/rfc822');
+  for(const [button,input,value] of [['#record-copy','#record-body',data.text],['#record-copy-subject','#record-subject',data.subject]]){
+    dialog.querySelector(button).onclick=async()=>{try{await navigator.clipboard.writeText(value);toast('コピーしました');}catch{dialog.querySelector(input).select();toast('選択しました。コピーしてください');}};
+  }
+  const shareButton=dialog.querySelector('#record-share');
+  if(shareButton)shareButton.onclick=async()=>{
+    shareButton.disabled=true;
+    try{await navigator.share({title:data.subject,text:data.text,files:[file]});toast('共有先で内容・添付・送信結果を確認してください');}
+    catch(error){if(error.name!=='AbortError'){dialog.querySelector('.form-error').textContent='共有できませんでした。JSONを保存してメールに添付してください。';dialog.querySelector('details').open=true;}}
+    finally{shareButton.disabled=false;}
+  };
+}
 function importPreview(value){
   const shared=value.kind==='template';
   openDialog(shared?'共有テンプレートの確認':'バックアップの取り込み',shared?`<h3>${e(value.name)}</h3><ol class="preview-items">${value.items.map(i=>`<li>${e(i.label)}${i.note?`<br><small>${e(i.note)}</small>`:''}</li>`).join('')}</ol><p>下書きとして追加します。内容を確認してから使用中に切り替えてください。</p>`:`<p>テンプレート ${value.templates.length}件、リスト ${value.checklists.length}件を追加します。</p><p>同じファイルも別データとして追加されます。設定はこの端末のものを維持し、通知はオフになります。現在の保持期間により、期限を過ぎた完了リストは削除されます。</p>`,{submit:shared?'下書きに追加':'追加する',onSubmit:async()=>{
@@ -178,6 +230,7 @@ function render(){
     confirmAction('保持期間を変更',value==='keep'?'完了リストを自動削除しない設定に変更します。':'変更後の保持期間を過ぎた完了リストは削除されます。必要なデータは先に書き出してください。',async()=>{await commit(s=>({...s,settings:{...s.settings,completedRetention:value}}));},'変更する');
   };
   const file=document.querySelector('#import-file');if(file)file.onchange=()=>action(async()=>{const selected=file.files[0];file.value='';if(selected)importPreview(parseTransfer(await selected.text()));});
+  refreshRemarks();
   updateNotificationStatus();
 }
 main.addEventListener('change',event=>{
@@ -190,6 +243,8 @@ main.addEventListener('click',event=>{
   const name=node.dataset.action,{kind,id,entity}=current(),row=node.closest('[data-item]'),itemId=row?.dataset.item,index=Number(row?.dataset.index);
   action(async()=>{
     switch(name){
+      case 'save-remarks':await saveRemarks(id);return toast('備考を保存しました');
+      case 'export-checklist':return exportChecklist(id);
       case 'notification-settings':return notificationSettings(entity);
       case 'enable-notifications':return notificationTask(node,async()=>{await notificationRuntime.enable();await notificationRuntime.sync();});
       case 'retry-notifications':return notificationTask(node,()=>notificationRuntime.retry());
@@ -206,10 +261,10 @@ main.addEventListener('click',event=>{
       case 'toggle-order-lock':return commit(s=>kind==='template'?domain.updateTemplate(s,id,{...entityIn(s,kind,id),defaultOrderLocked:!entity.defaultOrderLocked}):domain.updateChecklist(s,id,{orderLocked:!entity.orderLocked}));
       case 'up':case 'down':return commit(s=>domain.reorderItems(s,kind,id,index,index+(name==='up'?-1:1)));
       case 'delete-item':return confirmAction('項目を削除','この項目を削除します。',()=>commit(s=>mutateItems(s,kind,id,entityIn(s,kind,id).items.filter(i=>i.id!==itemId))),'削除する',true);
-      case 'delete-entity':return confirmAction('削除の確認',`「${entity.title??entity.name}」を削除します。この操作は取り消せません。`,async()=>{await commit(s=>kind==='template'?domain.deleteTemplate(s,id):domain.deleteChecklist(s,id));go(kind==='template'?'templates':'lists');},'削除する',true);
+      case 'delete-entity':return confirmAction('削除の確認',`「${entity.title??entity.name}」を削除します。この操作は取り消せません。`,async()=>{await commit(s=>kind==='template'?domain.deleteTemplate(s,id):domain.deleteChecklist(s,id));remarksDrafts.delete(id);go(kind==='template'?'templates':'lists');},'削除する',true);
       case 'duplicate':{const saved=await commit(s=>domain.duplicateTemplate(s,id));go('template/'+saved.templates.at(-1).id);return;}
       case 'settle':{
-        const settle=async()=>{await commit(s=>domain.settleChecklist(s,id));listTab='settled';celebrate=true;go('lists');toast('おつかれさまでした。完了を保存しました');};
+        const settle=async()=>{await saveRemarks(id);await commit(s=>domain.settleChecklist(s,id));listTab='settled';celebrate=true;go('lists');toast('おつかれさまでした。完了を保存しました');};
         const remaining=entity.items.filter(i=>!i.checked).length;
         if(remaining)return confirmAction('未チェックの項目があります',`${remaining}項目が未チェックです。このまま完了を確定しますか？`,settle,'このまま確定する');
         return settle();

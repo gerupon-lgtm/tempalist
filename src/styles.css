@@ -81,3 +81,14 @@ main:has(>.tabs)>.page-heading h1{font-size:clamp(1rem,4.6vw,1.25rem);margin-bot
 .app-header{border-bottom:1px solid #d9d9d9}
 .notification-link{font-size:.78rem;padding:3px 9px;min-height:32px;margin-left:6px}
 .settings-panel [hidden]{display:none}
+.checklist-remarks{margin-top:20px;padding-top:16px;border-top:1px solid var(--line)}
+.checklist-remarks>label{display:block;font-size:.95rem;margin-bottom:8px;font-weight:600}
+.checklist-remarks textarea{display:block;min-height:90px}
+.checklist-remarks .actions{margin-top:10px;gap:8px}
+.checklist-remarks .secondary-text{margin:5px 0 0}
+.record-export{margin-top:14px}
+.record-body{min-height:200px;font-size:.85rem;white-space:pre-wrap}
+.record-alternatives{margin-top:20px;font-size:.85rem}
+.record-alternatives summary{cursor:pointer;padding:8px 0;color:var(--brand)}
+.record-alternatives p{margin-top:12px}
+@media(max-width:680px){.app-header .brand{padding-bottom:14px;border-bottom:1px solid #d9d9d9}.app-header nav{margin-top:10px}}

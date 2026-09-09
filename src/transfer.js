@@ -1,4 +1,4 @@
-import { validateState } from './domain.js';
+import { emptyState, validateState } from './domain.js';
 import { PUBLIC_ORIGIN } from './version.js';
 function shared(value) {
   if (typeof value.name !== 'string' || !value.name.trim() || !Array.isArray(value.items)) throw new Error('テンプレートの形式が正しくありません。');
@@ -17,6 +17,7 @@ export function parseTransfer(text) {
   try { value=JSON.parse(text); } catch { throw new Error('JSONファイルを読み取れません。'); }
   if (!value || value.schemaVersion !== 1) throw new Error('対応していないデータの版です。取り込みを中止しました。');
   if (value.kind === 'template') return shared(value);
+  if (value.kind === 'checklist-record') return {...validateState({...emptyState(),checklists:[value.checklist]}),kind:'backup'};
   if (value.kind !== undefined && value.kind !== 'backup') throw new Error('データの種類が正しくありません。');
   return {...validateState({...value,revision:0}),kind:'backup'};
 }

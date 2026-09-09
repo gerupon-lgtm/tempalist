@@ -142,6 +142,8 @@ function sanitizeChecklist(value) {
   return {
     id: requireUuid(source.id, 'チェックリストID'),
     title: requireText(source.title, 'タイトル'),
+    remarks: optionalNote(source.remarks, '備考'),
+    remarksUpdatedAt: source.remarksUpdatedAt == null ? null : requireIso(source.remarksUpdatedAt, '備考更新日時'),
     sourceTemplateId: source.sourceTemplateId,
     orderLocked: optionalBoolean(source.orderLocked, '並び順ロック'),
     items,
@@ -325,6 +327,8 @@ export function createChecklist(state, input, now) {
   const created = {
     id: freshId(entityIds),
     title: requireText(value.title, 'タイトル'),
+    remarks: '',
+    remarksUpdatedAt: null,
     sourceTemplateId,
     orderLocked,
     items: sourceItems.map((item) => ({ id: freshId(), label: item.label, note: item.note, checked: false })),
@@ -371,6 +375,16 @@ export function updateChecklist(state, id, patch, now) {
   if (typeof updated.dueHasTime !== 'boolean' || (updated.dueAt === null && updated.dueHasTime)) fail('期限の時刻指定が不正です');
   if(!updated.dueAt||!updated.offsets.length)updated.notificationEnabled=false;
   return { ...next, checklists: replaceById(next.checklists, id, updated) };
+}
+
+export function updateChecklistRemarks(state, id, remarks, now) {
+  const next = existingState(state);
+  const current = findById(next.checklists, requireUuid(id, 'チェックリストID'), 'チェックリスト');
+  const value = optionalNote(remarks, '備考');
+  if (value === current.remarks) return next;
+  const timestamp = requireNow(now);
+  const updated = {...current, remarks:value, remarksUpdatedAt:timestamp, updatedAt:timestamp};
+  return {...next, checklists:replaceById(next.checklists, id, updated)};
 }
 
 export function setChecklistNotification(state,id,enabled,now){

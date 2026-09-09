@@ -182,3 +182,11 @@ interface OutboxItem {
 - 通知送信前にOutboxを保存し、検証済み成功応答を受けた後だけ操作を除去する。取消の対応表は成功まで保持。送信済みの過去枠はタップ解決用に残し、起動時に再作成しない。
 - 通知処理用Web Lockは `tempalist:notification`。業務保存用ロックとは別で、通信待ちがチェック操作を妨げない。通知の有効化はWeb Locks対応ブラウザに限定する。
 - 期限または全オフセットの削除時はnotificationEnabledをfalseにする。完了・再開・インポートも従来どおりfalse。端末全体の通知停止は全リストをfalseにする。
+
+## v0.3.0 全体備考・チェックリスト記録
+
+Checklistにremarks（文字列、旧データは空文字）、remarksUpdatedAt（UTC ISO日時またはnull、旧データはnull）を追加する。schemaVersionは1のまま。保存層は文字列とUTC日時を検証し、バックアップでも保持する。
+
+確定後の編集禁止の例外としてupdateChecklistRemarksだけを許可する。remarks変更時はremarksUpdatedAtとupdatedAtを更新し、settledAt・status・items・通知設定を維持する。同一内容の保存では日時を変えない。画面の未保存入力はタブ内のメモリで保持し、別タブでremarksまたはremarksUpdatedAtが変わっていれば保存を中断して入力を保持する。
+
+1件の記録はkind: checklist-recordとして出力し、全体バックアップとは区別する。設定から取り込む際は既存の追加インポートへ渡し、ID再発行・通知OFF・移行先設定維持の規則を適用する。形式と時刻の意味はchecklist-records.mdを参照。
