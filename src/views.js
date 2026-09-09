@@ -2,14 +2,19 @@ import {escapeHTML as e,icon} from './ui.js';
 import {formatDateTime,isOverdue} from './dates.js';
 export const statusName={active:'使用中',draft:'下書き',archived:'アーカイブ'};
 export const button=(action,label,style='',extra='')=>`<button data-action="${action}" class="${style}" ${extra}>${label}</button>`;
-export const heading=(title,sub,action='')=>`<div class="page-heading"><div><h1>${e(title)}</h1><p>${e(sub)}</p></div>${action}</div>`;
+export const heading=(title,sub,action='',className='')=>`<div class="page-heading ${e(className)}"><div><h1>${e(title)}</h1><p>${e(sub)}</p></div>${action}</div>`;
+function labelUnits(text){
+  // Approximate full-width character units; Latin letters need less room than Japanese.
+  const units=Array.from(text).reduce((width,char)=>width+(/[\u0020-\u007e\uff61-\uff9f]/.test(char)?.6:/\p{Mark}/u.test(char)?0:1),0);
+  return [8,10,12,14,16,18,20,24,32,48,64].find(size=>size>=units)??64;
+}
 export function items(entity,kind) {
   const locked=kind==='checklist' && entity.status==='settled';
   const orderLocked=kind==='checklist' && entity.orderLocked;
   if(!entity.items.length)return '<div class="empty-state"><h2>項目を追加しましょう</h2><p>ひとつずつ、必要な確認を書き留められます。</p></div>';
   return `${locked||orderLocked||kind==='checklist'?'':'<p class="reorder-hint">カードを長押しして移動 ／ 右端の↑↓でも移動</p>'}<ol class="items">${entity.items.map((item,index)=>`<li class="item-row ${locked||orderLocked?'':'reorderable'} ${item.checked?'checked':''}" data-index="${index}" data-item="${item.id}">
     ${kind==='checklist'?`<label class="row-check"><input type="checkbox" data-check="${item.id}" aria-label="${e(item.label)}" ${item.checked?'checked':''} ${locked?'disabled':''}></label>`:`<span class="item-number">${index+1}</span>`}
-    <div class="item-copy"><span class="item-label">${e(item.label)}</span>${item.note?`<span class="item-note">${e(item.note)}</span>`:''}</div>
+    <div class="item-copy"><span class="item-label" data-label-units="${labelUnits(item.label)}">${e(item.label)}</span>${item.note?`<span class="item-note">${e(item.note)}</span>`:''}</div>
     ${locked?'':`<div class="row-controls"><details class="item-menu"><summary aria-label="${e(item.label)}の操作">⋯</summary><div class="menu-actions">${button('edit-item','編集')}${button('delete-item','削除','danger')}</div></details><div class="row-stepper" ${orderLocked?'hidden':''}>${button('up',icon('up',18),'step-button',`aria-label="上へ" title="上へ" ${index===0?'disabled':''}`)}${button('down',icon('down',18),'step-button',`aria-label="下へ" title="下へ" ${index===entity.items.length-1?'disabled':''}`)}</div></div>`}
   </li>`).join('')}</ol>`;
 }
@@ -40,7 +45,7 @@ function orderLockControl(entity,kind) {
 export function detail(entity,kind) {
   const checklist=kind==='checklist',locked=checklist&&entity.status==='settled',checked=entity.items.filter(i=>i.checked).length;
   return `<a class="back" href="#/${checklist?'lists':'templates'}">${icon('back',16)} 一覧に戻る</a>`+
-    heading(entity.title??entity.name,checklist?'ひとつずつ確認していきましょう。':`${statusName[entity.status]} · チェックリストのひな型`,locked?'':button('edit-meta','編集'))+
+    heading(entity.title??entity.name,checklist?'ひとつずつ確認していきましょう。':`${statusName[entity.status]} · チェックリストのひな型`,locked?'':button('edit-meta','編集'),'detail-heading')+
     (locked?`<div class="lock-note">${icon('check')} 完了 ${e(formatDateTime(entity.settledAt))} · 備考はこのまま編集できます。項目を変更するには再開してください。</div>`:'')+
     (checklist?`<div class="detail-info"><div><p>${icon('clock',18)} ${e(formatDateTime(entity.dueAt,{dateOnly:!entity.dueHasTime}))}</p><p class="notification-note">通知：${entity.notificationEnabled?'ON':'OFF'} ${locked?'':button('notification-settings','通知を設定','notification-link')}</p></div><span class="progress-count">${checked} / ${entity.items.length}</span></div>`:`<div class="actions template-actions">${entity.status==='active'?button('from-template','この型でリストを作る','primary',`data-id="${entity.id}"`):''}${button('duplicate','複製')}${button('share','共有')}</div>`)+
     orderLockControl(entity,kind)+items(entity,kind)+(locked?'':button('add-item',`${icon('plus',18)} 項目を追加`,'add-item'))+

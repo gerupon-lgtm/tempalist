@@ -97,3 +97,40 @@ main:has(>.tabs)>.page-heading h1{font-size:clamp(1rem,4.6vw,1.25rem);margin-bot
 .pwa-settings{margin-bottom:18px}.pwa-settings .actions{margin-top:12px}
 @media(max-width:680px){.pwa-notice{flex-wrap:wrap}.pwa-notice .actions{gap:6px}}
 @media(max-width:680px){.app-header .brand{padding-bottom:14px;border-bottom:1px solid #d9d9d9}.app-header nav{margin-top:10px}}
+
+/* Keep the title and edit action stable; the description uses its own full-width row. */
+.detail-heading{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px 10px;align-items:start}
+.detail-heading>div{display:contents}
+.detail-heading h1{grid-column:1;grid-row:1;align-self:center;font-size:clamp(1.0625rem,5vw,1.375rem);line-height:1.5;letter-spacing:0;margin:0;min-width:0;word-break:normal;overflow-wrap:anywhere;line-break:strict;text-wrap:pretty}
+.detail-heading p{grid-column:1/-1;grid-row:2;margin:0}
+.detail-heading>[data-action=edit-meta]{grid-column:2;grid-row:1;align-self:start;height:44px;min-height:44px;max-height:44px;min-width:60px;padding:0 12px;white-space:nowrap;font-size:.9rem;line-height:1.25}
+.detail-heading:not(:has(>[data-action=edit-meta])) h1{grid-column:1/-1}
+@supports(word-break:auto-phrase){.detail-heading h1{word-break:auto-phrase}}
+
+.deadline-fields{grid-template-columns:minmax(0,1.4fr) minmax(0,1fr)}
+.date-time-field>label{display:block;margin-bottom:7px}
+.input-with-picker{position:relative}
+.input-with-picker>input:not(.native-picker){padding-right:48px}
+.input-with-picker>[data-open-picker]{position:absolute;right:2px;top:3px;display:grid;place-items:center;width:44px;height:44px;min-height:44px;padding:0;border:0;background:transparent;color:var(--accent)}
+.input-with-picker>.native-picker{position:absolute;right:0;top:0;width:44px;height:100%;min-width:0;padding:0;opacity:0;pointer-events:none}
+.input-with-picker.picker-fallback>.native-picker{position:static;width:100%;height:auto;opacity:1;pointer-events:auto;padding:10px;margin-top:6px}
+@media(max-width:360px){.deadline-fields{grid-template-columns:1fr;gap:0}}
+
+/* Fit labels to their available text column, with a readable lower size limit. */
+.item-label[data-label-units="8"]{--item-label-units:8}
+.item-label[data-label-units="10"]{--item-label-units:10}
+.item-label[data-label-units="12"]{--item-label-units:12}
+.item-label[data-label-units="14"]{--item-label-units:14}
+.item-label[data-label-units="16"]{--item-label-units:16}
+.item-label[data-label-units="18"]{--item-label-units:18}
+.item-label[data-label-units="20"]{--item-label-units:20}
+.item-label[data-label-units="24"]{--item-label-units:24}
+.item-label[data-label-units="32"]{--item-label-units:32}
+.item-label[data-label-units="48"]{--item-label-units:48}
+.item-label[data-label-units="64"]{--item-label-units:64}
+.item-copy .item-label{line-height:1.65;letter-spacing:0;word-break:normal;line-break:strict;text-wrap:pretty}
+@supports(container-type:inline-size){
+ .item-copy{container-type:inline-size}
+ .item-copy .item-label{font-size:clamp(.875rem,calc(100cqi / var(--item-label-units,1)),1rem);letter-spacing:clamp(-.02em,calc((100cqi / var(--item-label-units,1) - 1rem) / 4),0em)}
+}
+@supports(word-break:auto-phrase){.item-copy .item-label{word-break:auto-phrase}}

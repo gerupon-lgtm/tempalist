@@ -30,7 +30,7 @@ try{
   assert.equal(style.buttonText,'rgb(255, 255, 255)');
   assert.equal(style.buttonWeight,'700');
   assert.equal(style.bodyWeight,'500');
-  assert.equal(style.itemSize,'16px');
+  assert.ok(parseFloat(style.itemSize)>=14&&parseFloat(style.itemSize)<=16);
   assert.equal(style.background,'rgb(255, 254, 254)');
   await page.emulateMedia({colorScheme:'dark',reducedMotion:'reduce'});
   assert.equal(await page.evaluate(()=>getComputedStyle(document.documentElement).backgroundColor),style.background);

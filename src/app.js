@@ -1,5 +1,6 @@
 import * as domain from './domain.js';
-import {parseDeadline,deadlineFields,getTimeZone} from './dates.js';
+import {parseDeadline} from './dates.js';
+import {deadlineForm,bindPickers} from './date-time-fields.js';
 import {createStore,storageUsage,WARNING_BYTES,StorageFailure} from './storage.js';
 import {exportBackup,importBackup,shareTemplate,readSharedTemplate,parseTransfer} from './transfer.js';
 import {APP_VERSION,COPYRIGHT} from './version.js';
@@ -138,16 +139,6 @@ async function commit(change,expected=null) {
 function action(task){Promise.resolve().then(task).catch(error=>toast(error.message));}
 function current(){const {page,id}=locationInfo();return {kind:page,id,entity:entityIn(state,page,id)};}
 function input(name,value='',required=false){return `<input name="${name}" value="${e(value)}" ${required?'required':''} autocomplete="off">`;}
-function deadlineForm(entity={dueAt:null,dueHasTime:false}) {
-  const {date,time}=deadlineFields(entity.dueAt,entity.dueHasTime);
-  return `<div class="form-grid">${field('期限の日付',`<input name="date" value="${date}" placeholder="20260910" inputmode="numeric" autocomplete="off">`)}${field('時刻',`<input name="time" value="${time}" placeholder="0900" inputmode="numeric" autocomplete="off">`)}</div><div class="form-grid">${field('カレンダーで選ぶ','<input type="date" data-picker="date" aria-label="日付ピッカー">')}${field('時計で選ぶ','<input type="time" data-picker="time" aria-label="時刻ピッカー">')}</div><p class="secondary-text">日付8桁・時刻4桁でも入力できます。時刻省略時は09:00です。${e(getTimeZone())}</p>`;
-}
-function bindPickers(dialog){
-  dialog.querySelectorAll('[data-picker]').forEach(p=>{p.onchange=()=>{dialog.querySelector(`[name=${p.dataset.picker}]`).value=p.value;};});
-  const date=dialog.querySelector('[name=date]'),time=dialog.querySelector('[name=time]');
-  if(date)date.onblur=()=>{try{parseDeadline(date.value);if(/^\d{8}$/.test(date.value))date.value=date.value.replace(/^(\d{4})(\d{2})(\d{2})$/,'$1/$2/$3');}catch{/* Partial or invalid input stays editable. */}};
-  if(time)time.onblur=()=>{if(/^([01]\d|2[0-3])[0-5]\d$/.test(time.value))time.value=time.value.slice(0,2)+':'+time.value.slice(2);};
-}
 function newList(templateId=''){
   const templates=state.templates.filter(t=>t.status==='active');
   const selected=templates.find(t=>t.id===templateId);
