@@ -59,4 +59,20 @@ body:has(#note-panel:not([hidden])) #toast{bottom:calc(47svh + 24px)}
 
 /* Shared creation-button slot prevents movement when switching collection screens. */
 main:has(>.tabs)>.page-heading>.primary{width:156px;flex-shrink:0}
-@media(max-width:680px){main:has(>.tabs)>.page-heading>div{min-height:100px}}
+@media(max-width:680px){
+main:has(>.tabs)>.page-heading{gap:8px}
+main:has(>.tabs)>.page-heading h1{font-size:clamp(1rem,4.6vw,1.25rem);margin-bottom:6px}
+}
+
+.order-lock-setting{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:12px 0;margin-bottom:14px;border-bottom:1px solid var(--line)}
+.order-lock-setting strong{font-size:.86rem}.order-lock-setting p{font-size:.75rem;color:var(--muted);margin:3px 0 0;line-height:1.6}
+.order-lock-switch{display:flex;align-items:center;gap:8px;flex-shrink:0;padding:8px;border:0;background:transparent;font-size:.8rem;min-width:85px}
+.switch-track{display:block;width:34px;height:20px;border-radius:12px;background:var(--muted);padding:3px}
+.switch-track::after{content:"";display:block;width:14px;height:14px;border-radius:50%;background:#fff}
+.order-lock-switch[aria-checked=true] .switch-track{background:var(--brand)}
+.order-lock-switch[aria-checked=true] .switch-track::after{transform:translateX(14px)}
+.row-stepper[hidden]{display:none}
+.default-lock-field{display:flex;align-items:center;gap:8px;font-size:.86rem;margin-bottom:18px;font-weight:500}
+
+.detail-info:has(+.order-lock-setting),.template-actions:has(+.order-lock-setting){margin-bottom:8px}
+.order-lock-setting{padding-top:6px}

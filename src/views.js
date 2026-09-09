@@ -5,11 +5,12 @@ export const button=(action,label,style='',extra='')=>`<button data-action="${ac
 export const heading=(title,sub,action='')=>`<div class="page-heading"><div><h1>${e(title)}</h1><p>${e(sub)}</p></div>${action}</div>`;
 export function items(entity,kind) {
   const locked=kind==='checklist' && entity.status==='settled';
+  const orderLocked=kind==='checklist' && entity.orderLocked;
   if(!entity.items.length)return '<div class="empty-state"><h2>項目を追加しましょう</h2><p>ひとつずつ、必要な確認を書き留められます。</p></div>';
-  return `${locked?'':'<p class="reorder-hint">カードを長押しして移動 ／ 右端の↑↓でも移動</p>'}<ol class="items">${entity.items.map((item,index)=>`<li class="item-row ${locked?'':'reorderable'} ${item.checked?'checked':''}" data-index="${index}" data-item="${item.id}">
+  return `${locked||orderLocked||kind==='checklist'?'':'<p class="reorder-hint">カードを長押しして移動 ／ 右端の↑↓でも移動</p>'}<ol class="items">${entity.items.map((item,index)=>`<li class="item-row ${locked||orderLocked?'':'reorderable'} ${item.checked?'checked':''}" data-index="${index}" data-item="${item.id}">
     ${kind==='checklist'?`<label class="row-check"><input type="checkbox" data-check="${item.id}" aria-label="${e(item.label)}" ${item.checked?'checked':''} ${locked?'disabled':''}></label>`:`<span class="item-number">${index+1}</span>`}
     <div class="item-copy"><span class="item-label">${e(item.label)}</span>${item.note?`<span class="item-note">${e(item.note)}</span>`:''}</div>
-    ${locked?'':`<div class="row-controls"><details class="item-menu"><summary aria-label="${e(item.label)}の操作">⋯</summary><div class="menu-actions">${button('edit-item','編集')}${button('delete-item','削除','danger')}</div></details><div class="row-stepper">${button('up',icon('up',18),'step-button',`aria-label="上へ" title="上へ" ${index===0?'disabled':''}`)}${button('down',icon('down',18),'step-button',`aria-label="下へ" title="下へ" ${index===entity.items.length-1?'disabled':''}`)}</div></div>`}
+    ${locked?'':`<div class="row-controls"><details class="item-menu"><summary aria-label="${e(item.label)}の操作">⋯</summary><div class="menu-actions">${button('edit-item','編集')}${button('delete-item','削除','danger')}</div></details><div class="row-stepper" ${orderLocked?'hidden':''}>${button('up',icon('up',18),'step-button',`aria-label="上へ" title="上へ" ${index===0?'disabled':''}`)}${button('down',icon('down',18),'step-button',`aria-label="下へ" title="下へ" ${index===entity.items.length-1?'disabled':''}`)}</div></div>`}
   </li>`).join('')}</ol>`;
 }
 export function listCard(list) {
@@ -30,13 +31,19 @@ export function templates(state,tab) {
     `<div class="tabs" role="tablist" aria-label="テンプレートの状態">${Object.entries(statusName).map(([s,n])=>button('template-tab',`${n} <span class="count">${state.templates.filter(t=>t.status===s).length}</span>`,'',`role="tab" aria-selected="${s===tab}" data-value="${s}"`)).join('')}</div>`+
     `<div class="list-stack">${shown.map(t=>`<a class="list-card" href="#/template/${t.id}"><div class="card-copy"><h2>${e(t.name)}</h2><span class="meta-line">${t.items.length}項目 · 更新 ${e(formatDateTime(t.updatedAt,{dateOnly:true}))}</span></div>${icon('arrow')}</a>`).join('')||`<div class="empty-state"><h2>${statusName[tab]}のテンプレートはありません</h2>${button('new-template','テンプレートを作る','primary')}</div>`}</div>`;
 }
+function orderLockControl(entity,kind) {
+  const template=kind==='template',on=template?entity.defaultOrderLocked:entity.orderLocked;
+  const disabled=!template&&entity.status==='settled';
+  const label=template?'作成するリストの並び順ロック':'並び順ロック';
+  return `<section class="order-lock-setting"><div><strong>${label}</strong><p>${template?'新しいリストの初期設定です。作成後も切り替えられます。':disabled?'完了確定済みです。切り替えるには再開してください。':on?'並べ替えを防ぎます。チェック・編集はそのまま使えます。':'カードの長押しや↑↓で並べ替えできます。'}</p></div>${button('toggle-order-lock',`<span class="switch-track" aria-hidden="true"></span><span>${on?'ON':'OFF'}</span>`,'order-lock-switch',`role="switch" aria-label="${label}" aria-checked="${Boolean(on)}" ${disabled?'disabled':''}`)}</section>`;
+}
 export function detail(entity,kind) {
   const checklist=kind==='checklist',locked=checklist&&entity.status==='settled',checked=entity.items.filter(i=>i.checked).length;
   return `<a class="back" href="#/${checklist?'lists':'templates'}">${icon('back',16)} 一覧に戻る</a>`+
     heading(entity.title??entity.name,checklist?'ひとつずつ確認していきましょう。':`${statusName[entity.status]} · チェックリストのひな型`,locked?'':button('edit-meta','編集'))+
     (locked?`<div class="lock-note">${icon('check')} 完了 ${e(formatDateTime(entity.settledAt))} · 編集するには再開してください。</div>`:'')+
     (checklist?`<div class="detail-info"><div><p>${icon('clock',18)} ${e(formatDateTime(entity.dueAt,{dateOnly:!entity.dueHasTime}))}</p><p class="notification-note">通知機能は準備中です。期限はこの画面で確認できます。</p></div><span class="progress-count">${checked} / ${entity.items.length}</span></div>`:`<div class="actions template-actions">${entity.status==='active'?button('from-template','この型でリストを作る','primary',`data-id="${entity.id}"`):''}${button('duplicate','複製')}${button('share','共有')}</div>`)+
-    items(entity,kind)+(locked?'':button('add-item',`${icon('plus',18)} 項目を追加`,'add-item'))+
+    orderLockControl(entity,kind)+items(entity,kind)+(locked?'':button('add-item',`${icon('plus',18)} 項目を追加`,'add-item'))+
     `<div class="detail-bottom"><div class="actions">${checklist?button('write-back','テンプレートに書き戻す'):''}${button('delete-entity',checklist?'リストを削除':'テンプレートを削除','danger-link')}</div>${checklist?button(locked?'reopen':'settle',locked?'再開する':'完了を確定する','primary'):''}</div>`;
 }
 export function settings(state,bytes,version) {

@@ -18,7 +18,7 @@ try{
  await page.waitForFunction(()=>getComputedStyle(document.querySelector('#toast')).opacity==='0');
  await mkdir('artifacts',{recursive:true});
  await page.screenshot({path:'artifacts/preview-checklist-mobile.png',fullPage:true});
- await page.getByRole('link',{name:'リスト',exact:true}).click();
+ await page.getByRole('link',{name:'!=テンパリスト ホーム',exact:true}).click();
  await page.screenshot({path:'artifacts/preview-home-mobile.png',fullPage:true});
  await page.setViewportSize({width:1280,height:900});
  await page.screenshot({path:'artifacts/preview-home-desktop.png',fullPage:true});

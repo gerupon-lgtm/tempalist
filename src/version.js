@@ -1,4 +1,4 @@
-export const APP_VERSION = '0.1.5';
+export const APP_VERSION = '0.1.6';
 export const APP_NAME = '!=テンパリスト';
 export const APP_ENGLISH_NAME = 'NOT EQUAL TEMPALIST';
 export const APP_ID = 'tempalist';

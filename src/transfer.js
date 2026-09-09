@@ -2,7 +2,8 @@ import { validateState } from './domain.js';
 import { PUBLIC_ORIGIN } from './version.js';
 function shared(value) {
   if (typeof value.name !== 'string' || !value.name.trim() || !Array.isArray(value.items)) throw new Error('テンプレートの形式が正しくありません。');
-  return {schemaVersion:1,kind:'template',name:value.name,items:value.items.map(item=>{
+  if(value.defaultOrderLocked !== undefined && typeof value.defaultOrderLocked !== 'boolean') throw new Error('並び順ロックの初期設定が正しくありません。');
+  return {schemaVersion:1,kind:'template',name:value.name,defaultOrderLocked:value.defaultOrderLocked ?? false,items:value.items.map(item=>{
     if (!item || typeof item.label !== 'string' || !item.label.trim() || (item.note !== undefined && typeof item.note !== 'string')) throw new Error('項目の形式が正しくありません。');
     return {label:item.label,note:item.note ?? ''};
   })};

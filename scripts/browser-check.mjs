@@ -27,7 +27,7 @@ try {
   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
   await mkdir('artifacts',{recursive:true});
   await page.screenshot({path:'artifacts/checklist-mobile.png',fullPage:true});
-  await page.getByRole('link',{name:'リスト',exact:true}).click();
+  await page.getByRole('link',{name:'!=テンパリスト ホーム',exact:true}).click();
   await page.screenshot({path:'artifacts/home-mobile.png',fullPage:true});
   await page.setViewportSize({width:1280,height:900});
   await page.screenshot({path:'artifacts/home-desktop.png',fullPage:true});

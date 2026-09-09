@@ -120,7 +120,7 @@ try{
     const page=await context.newPage();
     const {sourceId,listId}=await createListFromSample(page);
     await editFirstItem(page,'通常の書き戻し');
-    await page.getByRole('link',{name:'リスト',exact:true}).click();
+    await page.getByRole('link',{name:'!=テンパリスト ホーム',exact:true}).click();
     await button(page,'リストを作る').first().click();
     await page.getByLabel('タイトル',{exact:true}).fill('容量整理用');
     await button(page,'作成する').click();

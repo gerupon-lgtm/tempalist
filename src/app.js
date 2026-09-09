@@ -9,6 +9,15 @@ import * as view from './views.js';
 import {attachReorder} from './reorder.js';
 import {attachCardInteractions} from './card-interactions.js';
 const main=document.querySelector('main');
+let lastChecklistId=null;
+try{lastChecklistId=sessionStorage.getItem('tempalist:last-checklist');}catch{/* Navigation memory is optional. */}
+function rememberChecklist(page,id){
+  if(page==='lists')lastChecklistId=null;
+  else if(page==='checklist')lastChecklistId=id;
+  if(!state.checklists.some(list=>list.id===lastChecklistId))lastChecklistId=null;
+  try{if(lastChecklistId)sessionStorage.setItem('tempalist:last-checklist',lastChecklistId);else sessionStorage.removeItem('tempalist:last-checklist');}catch{/* Keep the in-memory value when session storage is unavailable. */}
+  document.querySelector('[data-nav=lists]').href=lastChecklistId?'#/checklist/'+lastChecklistId:'#/lists';
+}
 document.querySelector('#version').textContent=`v${APP_VERSION}`;
 document.querySelector('#copyright').textContent=COPYRIGHT;
 let store,state,listTab='active',templateTab='active',stopDrag=()=>{},stopCards=()=>{},celebrate=false;
@@ -51,8 +60,8 @@ function newList(templateId=''){
   dialog.querySelector('[name=source]').onchange=event=>{const t=templates.find(t=>t.id===event.target.value);if(t)dialog.querySelector('[name=title]').value=t.name;};
   bindPickers(dialog);
 }
-function newTemplate(){openDialog('テンプレートを作る',field('テンプレート名',input('name','',true))+field('項目（1行に1項目）','<textarea name="items" placeholder="必要な確認を入力"></textarea>','あとからメモや項目を追加できます。'),{submit:'作成する',onSubmit:async f=>{
-  const saved=await commit(s=>domain.createTemplate(s,{name:f.get('name'),items:f.get('items').split(/\r?\n/).filter(x=>x.trim()).map(label=>({label,note:''}))}));go('template/'+saved.templates.at(-1).id);
+function newTemplate(){openDialog('テンプレートを作る',field('テンプレート名',input('name','',true))+'<label class="default-lock-field"><input type="checkbox" name="defaultOrderLocked"> 作成するリストの並び順をロックする</label>'+field('項目（1行に1項目）','<textarea name="items" placeholder="必要な確認を入力"></textarea>','あとからメモや項目を追加できます。'),{submit:'作成する',onSubmit:async f=>{
+  const saved=await commit(s=>domain.createTemplate(s,{name:f.get('name'),defaultOrderLocked:f.has('defaultOrderLocked'),items:f.get('items').split(/\r?\n/).filter(x=>x.trim()).map(label=>({label,note:''}))}));go('template/'+saved.templates.at(-1).id);
 }});}
 function editMeta(){
   const {kind,id,entity}=current(),unchanged=s=>JSON.stringify(entityIn(s,kind,id))===JSON.stringify(entity);
@@ -87,7 +96,7 @@ function share(){
 function importPreview(value){
   const shared=value.kind==='template';
   openDialog(shared?'共有テンプレートの確認':'バックアップの取り込み',shared?`<h3>${e(value.name)}</h3><ol class="preview-items">${value.items.map(i=>`<li>${e(i.label)}${i.note?`<br><small>${e(i.note)}</small>`:''}</li>`).join('')}</ol><p>下書きとして追加します。内容を確認してから使用中に切り替えてください。</p>`:`<p>テンプレート ${value.templates.length}件、リスト ${value.checklists.length}件を追加します。</p><p>同じファイルも別データとして追加されます。設定はこの端末のものを維持し、通知はオフになります。現在の保持期間により、期限を過ぎた完了リストは削除されます。</p>`,{submit:shared?'下書きに追加':'追加する',onSubmit:async()=>{
-    const saved=await commit(s=>shared?domain.createTemplate(s,{name:value.name,items:value.items,status:'draft'}):importBackup(s,value));
+    const saved=await commit(s=>shared?domain.createTemplate(s,{name:value.name,items:value.items,defaultOrderLocked:value.defaultOrderLocked,status:'draft'}):importBackup(s,value));
     go(shared?'template/'+saved.templates.at(-1).id:'lists');toast('データを追加しました');
   }});
 }
@@ -108,6 +117,7 @@ function capacity(quota=false){
 function render(){
   stopDrag();stopCards();if(!state)return;
   const {page,id}=locationInfo();
+  rememberChecklist(page,id);
   document.querySelectorAll('[data-nav]').forEach(a=>{if(a.dataset.nav===(page==='template'?'templates':page==='checklist'?'lists':page))a.setAttribute('aria-current','page');else a.removeAttribute('aria-current');});
   let bytes=0;try{bytes=storageUsage(localStorage);}catch{/* read errors handled by the store */}
   if(page==='lists')main.innerHTML=view.lists(state,listTab);
@@ -117,7 +127,7 @@ function render(){
     const entity=entityIn(state,page,id);
     main.innerHTML=entity?view.detail(entity,page):'<div class="empty-state"><h1>リストが見つかりません</h1><p>削除されたか、この端末に保存されていません。</p><a href="#/lists">一覧に戻る</a></div>';
     if(entity)stopCards=attachCardInteractions(main,itemId=>entity.items.find(item=>item.id===itemId));
-    if(entity&&(page==='template'||entity.status==='active'))stopDrag=attachReorder(main,(from,to)=>action(()=>commit(s=>domain.reorderItems(s,page,id,from,to))));
+    if(entity&&(page==='template'||entity.status==='active'&&!entity.orderLocked))stopDrag=attachReorder(main,(from,to)=>action(()=>commit(s=>domain.reorderItems(s,page,id,from,to))));
   } else main.innerHTML='<h1>ページが見つかりません</h1><a href="#/lists">リストへ</a>';
   if(bytes>=WARNING_BYTES)main.insertAdjacentHTML('afterbegin','<div class="notice">保存容量が少なくなっています。バックアップを保存し、不要なデータを整理してください。 <button data-action="capacity">容量を整理する</button></div>');
   const retention=document.querySelector('#retention');if(retention)retention.onchange=()=>{
@@ -142,6 +152,7 @@ main.addEventListener('click',event=>{
       case 'list-tab':listTab=node.dataset.value;return render();
       case 'template-tab':templateTab=node.dataset.value;return render();
       case 'edit-meta':return editMeta();case 'add-item':return editItem();case 'edit-item':return editItem(itemId);
+      case 'toggle-order-lock':return commit(s=>kind==='template'?domain.updateTemplate(s,id,{...entityIn(s,kind,id),defaultOrderLocked:!entity.defaultOrderLocked}):domain.updateChecklist(s,id,{orderLocked:!entity.orderLocked}));
       case 'up':case 'down':return commit(s=>domain.reorderItems(s,kind,id,index,index+(name==='up'?-1:1)));
       case 'delete-item':return confirmAction('項目を削除','この項目を削除します。',()=>commit(s=>mutateItems(s,kind,id,entityIn(s,kind,id).items.filter(i=>i.id!==itemId))),'削除する',true);
       case 'delete-entity':return confirmAction('削除の確認',`「${entity.title??entity.name}」を削除します。この操作は取り消せません。`,async()=>{await commit(s=>kind==='template'?domain.deleteTemplate(s,id):domain.deleteChecklist(s,id));go(kind==='template'?'templates':'lists');},'削除する',true);

@@ -41,7 +41,7 @@ try{
  await page.waitForTimeout(200);await panel.waitFor({state:'hidden'});
  await first.locator('.item-copy').tap();await panel.waitFor({state:'visible'});
  await page.getByRole('link',{name:'設定',exact:true}).click();assert.equal(await panel.count(),0);
- await page.getByRole('link',{name:'リスト',exact:true}).click();
+ await page.getByRole('link',{name:'!=テンパリスト ホーム',exact:true}).click();
  await page.locator('.list-card').first().click();
  await page.locator('[data-index="2"] .note-more').waitFor();
  await page.setViewportSize({width:1280,height:900});

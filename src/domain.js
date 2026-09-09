@@ -29,6 +29,12 @@ function optionalNote(value, label = 'メモ') {
   return value;
 }
 
+function optionalBoolean(value, label) {
+  if (value === undefined) return false;
+  if (typeof value !== 'boolean') fail(`${label}が不正です`);
+  return value;
+}
+
 function requireUuid(value, label) {
   if (typeof value !== 'string' || !UUID_PATTERN.test(value)) fail(`${label}が不正です`);
   return value;
@@ -89,6 +95,7 @@ function sanitizeTemplate(value) {
     id: requireUuid(source.id, 'テンプレートID'),
     name: requireText(source.name, 'テンプレート名'),
     status: source.status,
+    defaultOrderLocked: optionalBoolean(source.defaultOrderLocked, '並び順ロックの初期設定'),
     items,
     createdAt: requireIso(source.createdAt, '作成日時'),
     updatedAt: requireIso(source.updatedAt, '更新日時'),
@@ -136,6 +143,7 @@ function sanitizeChecklist(value) {
     id: requireUuid(source.id, 'チェックリストID'),
     title: requireText(source.title, 'タイトル'),
     sourceTemplateId: source.sourceTemplateId,
+    orderLocked: optionalBoolean(source.orderLocked, '並び順ロック'),
     items,
     dueAt: source.dueAt,
     dueHasTime: source.dueHasTime,
@@ -245,6 +253,7 @@ export function createTemplate(state, input, now) {
     id: freshId(entityIds),
     name: requireText(value.name, 'テンプレート名'),
     status,
+    defaultOrderLocked: optionalBoolean(value.defaultOrderLocked, '並び順ロックの初期設定'),
     items: normalizeEditableTemplateItems(value.items),
     createdAt: timestamp,
     updatedAt: timestamp,
@@ -263,6 +272,7 @@ export function updateTemplate(state, id, input, now) {
     ...current,
     name: requireText(value.name, 'テンプレート名'),
     status: value.status,
+    defaultOrderLocked: value.defaultOrderLocked === undefined ? current.defaultOrderLocked : optionalBoolean(value.defaultOrderLocked, '並び順ロックの初期設定'),
     items: normalizeEditableTemplateItems(value.items, current.items),
     updatedAt: timestamp,
   };
@@ -279,6 +289,7 @@ export function duplicateTemplate(state, id, now) {
     id: freshId(entityIds),
     name: `${current.name} のコピー`,
     status: current.status,
+    defaultOrderLocked: current.defaultOrderLocked,
     items: current.items.map((item) => ({ id: freshId(), label: item.label, note: item.note })),
     createdAt: timestamp,
     updatedAt: timestamp,
@@ -298,12 +309,13 @@ export function createChecklist(state, input, now) {
   const value = requireObject(input, 'チェックリスト');
   const timestamp = requireNow(now);
   const sourceTemplateId = value.sourceTemplateId ?? null;
-  let sourceItems = [];
+  let sourceItems = [], orderLocked = false;
   if (sourceTemplateId !== null) {
     requireUuid(sourceTemplateId, '生まれ元テンプレートID');
     const source = findById(next.templates, sourceTemplateId, 'テンプレート');
     if (source.status !== 'active') fail('有効なテンプレートを選択してください');
     sourceItems = source.items;
+    orderLocked = source.defaultOrderLocked;
   }
   const dueAt = value.dueAt ?? null;
   const dueHasTime = value.dueHasTime ?? false;
@@ -314,6 +326,7 @@ export function createChecklist(state, input, now) {
     id: freshId(entityIds),
     title: requireText(value.title, 'タイトル'),
     sourceTemplateId,
+    orderLocked,
     items: sourceItems.map((item) => ({ id: freshId(), label: item.label, note: item.note, checked: false })),
     dueAt,
     dueHasTime,
@@ -333,19 +346,27 @@ export function updateChecklist(state, id, patch, now) {
   const current = findById(next.checklists, id, 'チェックリスト');
   if (current.status === 'settled') fail('確定済みのチェックリストは編集できません');
   const value = requireObject(patch, '更新内容');
-  const allowed = new Set(['title', 'items', 'dueAt', 'dueHasTime', 'offsets']);
+  const allowed = new Set(['title', 'items', 'dueAt', 'dueHasTime', 'offsets', 'orderLocked']);
   for (const key of Object.keys(value)) {
     if (!allowed.has(key)) fail('変更できない項目が含まれています');
   }
   const updated = {
     ...current,
     title: value.title === undefined ? current.title : requireText(value.title, 'タイトル'),
+    orderLocked: value.orderLocked === undefined ? current.orderLocked : optionalBoolean(value.orderLocked, '並び順ロック'),
     items: value.items === undefined ? current.items : normalizeEditableChecklistItems(value.items, current.items),
     dueAt: value.dueAt === undefined ? current.dueAt : value.dueAt,
     dueHasTime: value.dueHasTime === undefined ? current.dueHasTime : value.dueHasTime,
     offsets: value.offsets === undefined ? current.offsets : sanitizeOffsets(value.offsets),
     updatedAt: requireNow(now),
   };
+  if (current.orderLocked && value.items !== undefined) {
+    const remaining = new Set(updated.items.map(item => item.id));
+    const previous = new Set(current.items.map(item => item.id));
+    const before = current.items.filter(item => remaining.has(item.id)).map(item => item.id);
+    const after = updated.items.filter(item => previous.has(item.id)).map(item => item.id);
+    if (before.some((id, index) => id !== after[index])) fail('並び順がロックされています。解除してから移動してください');
+  }
   if (updated.dueAt !== null) requireIso(updated.dueAt, '期限');
   if (typeof updated.dueHasTime !== 'boolean' || (updated.dueAt === null && updated.dueHasTime)) fail('期限の時刻指定が不正です');
   return { ...next, checklists: replaceById(next.checklists, id, updated) };
@@ -374,6 +395,7 @@ export function reorderItems(state, kind, id, fromIndex, toIndex, now) {
   const label = kind === 'template' ? 'テンプレート' : 'チェックリスト';
   const current = findById(next[collectionName], id, label);
   if (kind === 'checklist' && current.status === 'settled') fail('確定済みのチェックリストは編集できません');
+  if (kind === 'checklist' && current.orderLocked) fail('並び順がロックされています。解除してから移動してください');
   if (!Number.isInteger(fromIndex) || !Number.isInteger(toIndex)
     || fromIndex < 0 || toIndex < 0 || fromIndex >= current.items.length || toIndex >= current.items.length) {
     fail('並べ替え位置が不正です');
@@ -435,6 +457,7 @@ export function writeBack(state, checklistId, options, now) {
     id: freshId(entityIds),
     name: value.name === undefined ? list.title : requireText(value.name, 'テンプレート名'),
     status: 'active',
+    defaultOrderLocked: list.orderLocked,
     items: copyItems(),
     createdAt: timestamp,
     updatedAt: timestamp,

@@ -30,6 +30,7 @@ function template(overrides = {}) {
   return {
     id: TEMPLATE_ID,
     name: '出発準備',
+    defaultOrderLocked: false,
     status: 'active',
     items: [{ id: TEMPLATE_ITEM_ID, label: '財布', note: '現金も確認' }],
     createdAt: NOW,
@@ -42,6 +43,7 @@ function checklist(overrides = {}) {
   return {
     id: CHECKLIST_ID,
     title: '旅行',
+    orderLocked: false,
     sourceTemplateId: TEMPLATE_ID,
     items: [{ id: CHECKLIST_ITEM_ID, label: '財布', note: '', checked: false }],
     dueAt: '2026-09-12T00:00:00.000Z',

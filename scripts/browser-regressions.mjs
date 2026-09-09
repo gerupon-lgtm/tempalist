@@ -54,7 +54,7 @@ try{
   const original=Storage.prototype.setItem;window.testQuota=true;
   Storage.prototype.setItem=function(key,value){if(key==='tempalist:data'&&window.testQuota){const old=this.getItem(key)||'';if(value.length>=old.length)throw new DOMException('full','QuotaExceededError');window.testQuota=false;}return original.call(this,key,value);};
  });
- await page.getByRole('link',{name:'リスト',exact:true}).click();await button('リストを作る').first().click();
+ await page.getByRole('link',{name:'!=テンパリスト ホーム',exact:true}).click();await button('リストを作る').first().click();
  await page.getByLabel('タイトル',{exact:true}).fill('入力を保持する');
  await button('作成する').click();await page.locator('#capacity-dialog').waitFor();
  assert.equal(await page.locator('#capacity-dialog input:checked').count(),0);

@@ -22,6 +22,7 @@ interface Template {
   id: string;                 // crypto.randomUUID()
   name: string;
   status: "draft" | "active" | "archived";
+  defaultOrderLocked: boolean; // 作成するリストの並び順ロック初期値。既定false
   items: TemplateItem[];      // 配列の順序が並び順（意味を持つ）
   createdAt: string;          // ISO 8601 UTC
   updatedAt: string;
@@ -45,6 +46,7 @@ interface Checklist {
   id: string;
   title: string;
   sourceTemplateId: string | null;   // 空から作成時はnull。生まれ元が削除済みなら参照先なしとして扱う
+  orderLocked: boolean;             // 作成時にテンプレート初期値をコピー。独立して変更可
   items: ChecklistItem[];            // 配列の順序が並び順
   dueAt: string | null;              // ISO 8601 UTC
   dueHasTime: boolean;               // false なら時刻はローカル09:00として補完済み
@@ -165,3 +167,11 @@ interface OutboxItem {
 - 取り込み時は `kind` と `schemaVersion`、内容の形式を検証し、S-08で内容確認後に新しいテンプレートとして `draft` で追加する
 - `status` は書き出しに含めず、受け取り側で決める。未知版・破損データは取り込まない
 - 全体バックアップのJSONとは形式を区別し、設定画面のファイル選択からも共有JSONの確認画面へ進める
+
+## v0.1.6の互換性・並び順ロック
+
+- schemaVersion 1の互換的な任意項目追加。旧レコード・旧バックアップ・旧共有にロック項目がない場合だけfalseで補完し、元の並び順は変えない。存在する値はbooleanを必須とし、null・文字列・数値は拒否する。保存時に正規化した項目を含める。
+- テンプレートのdefaultOrderLockedを新規Checklist.orderLockedへコピーする。空から作成したリストはfalse。テンプレートの後日の変更は既存リストへ伝播しない。リスト側の変更もテンプレートへ伝播しない。
+- ONのチェックリストではreorderItemsを拒否し、updateChecklistのitems経由でも既存項目の相対順序変更を拒否する。ラベル・メモ編集、チェック、項目追加・削除は可能。完了確定中は従来どおりすべての編集とロック切替を禁止し、再開時にorderLockedを維持する。
+- テンプレート複製・共有JSON／URL・バックアップ取り込みで設定を保持する。既存テンプレートへの書き戻しはそのdefaultOrderLockedを維持し、新規テンプレートへの書き戻しはリストのorderLockedを初期値として設定する。
+- sessionStorageの `tempalist:last-checklist` はそのブラウザタブで最後に開いたChecklist.idを保持する一時的な画面状態。チェックリスト本体は従来どおりlocalStorageのみ。エクスポート対象外。明示的に一覧へ戻るか、対象が削除された場合は記録を消す。sessionStorageが使えない場合はメモリ内で継続する。
