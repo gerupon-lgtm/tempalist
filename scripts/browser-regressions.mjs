@@ -29,6 +29,8 @@ try{
  const startScroll=await page.evaluate(()=>scrollY);await page.mouse.move(335,805,{steps:8});
  await page.waitForFunction(start=>scrollY>start+100,startScroll);
  await page.mouse.up();await page.waitForFunction(()=>!document.querySelector('.dragging'));
+ // Drag visuals end before the Web Locks save resolves; assert the durable result.
+ await page.waitForFunction(()=>JSON.parse(localStorage.getItem('tempalist:data')).templates.at(-1).items[0].label!=='確認 2');
  const dragState=await saved();assert.notEqual(dragState.templates.at(-1).items[0].label,'確認 2');
  const stopped=await page.evaluate(()=>scrollY);await page.waitForTimeout(100);assert.equal(await page.evaluate(()=>scrollY),stopped);
  await page.evaluate(()=>scrollTo(0,0));

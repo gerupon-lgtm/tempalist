@@ -159,7 +159,7 @@
 | F-015 | — | `PUT`/`DELETE` reminders | ReminderMapping, Outbox | T-17, T-18 | 確定 |
 | F-016 | — | Service Worker | — | T-19 | 確定 |
 | F-017 | S-07 | 追加インポート・移行先設定を維持 | 書き出しは業務データと設定、取り込みはリスト・テンプレートを追加 | T-12 | 確定 |
-| F-018 | S-04 | URL長超過時は共有JSON | Template | T-13 | 挙動は確定、上限値はQ-04 |
+| F-018 | S-04 | URL長超過時は共有JSON | Template | T-13 | v0.1.0はURL全体8000文字まで（Q-04） |
 | F-019 | S-08, S-07 | URL・共有JSONの取り込み | Template(draft) | T-13 | 確定 |
 | F-020 | S-07 | — | Settings | T-14 | 確定 |
 | F-021 | — | 起動時の掃除 | Checklist.settledAt | T-14 | 確定 |

@@ -39,9 +39,12 @@ npm.cmd run test:browser
 
 ```powershell
 npm.cmd run package:site
+node scripts/check-artifacts.mjs
 ```
 
 `_site/`にHTML/CSS/ESM/アイコン/manifestとCNAMEをコピーします。ここだけをGitHub Pagesに配信する想定です。目標ドメインは `tempalist.sikumilab.com`。このコマンドは公開しません。
+
+`check-artifacts.mjs`は一時コピーで版数を意図的に不一致にし、検証が失敗することと、配信物の内容が現在のアプリと一致することを確かめます。確認用のサンプル画面は、サーバー起動中に `node scripts/capture-preview.mjs` で生成できます。
 
 ## 設計と引き継ぎ
 

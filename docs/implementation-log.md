@@ -39,10 +39,18 @@ P0〜P3を動作する画面とテストまで実装する。P4のPush連携は�
 
 - Vitest: 4ファイル・67テスト成功。通常実行と `npm run test:utc` の双方で確認。
 - `npm run check`: JavaScript構文、package・manifest・画面版数の正典、アプリ識別子の一致を確認。
+- `node scripts/check-artifacts.mjs`: 一時コピーのmanifest版数を意図的に変え、検証が失敗することを確認。配信物に開発ファイルが含まれず、現行ソースと一致することも確認。
 - `npm run package:site`: `_site/`へアプリの静的ファイルを生成。公開操作なし。
 - `scripts/browser-check.mjs`: 空から作成、項目・メモ追加、チェック保存と再読込、確定ロック、再開、画面幅を確認。
 - `scripts/browser-regressions.mjs`: 50項目、編集・代替並べ替え・実ポインタードラッグ・端スクロールと停止、期限09:00、未チェック確定、容量不足時に入力を保持してキャンセル・整理・再試行、別タブの古い編集拒否、共有文字列のHTML無害化、draft登録、JSON書き出し・繰り返し追加取り込み、dark/reduced-motionを確認。
 - 業務ルール・日時モジュールは独立レビュー済み。指摘なし。
+- 最終レビューで見つかった保持期間変更キャンセル後の表示不一致と、書き戻し確認中の別タブ変更の上書きを修正。`scripts/browser-review-fixes.mjs`でキャンセル・Escape・設定の再変更、書き戻し元／先の変更を保護すること、通常の書き戻しと無関係な容量整理後の保存を確認。対象差分の再レビューで承認済み。
+- `node scripts/check-serving.mjs`: `/`・`/list`の配信、存在しないアセットでサーバーが停止しないこと、docs・package・Git情報を配信しないことを確認。
+- 最終の `npm run test:browser` は3スクリプトすべて成功。ドラッグ表示の終了直後に保存を検証していたテストの競合は、保存済み順序を待つようテストを修正して解消した。アプリの保存処理は変更していない。
+
+## 確認用の画面
+
+`node scripts/capture-preview.mjs` は隔離ブラウザで承認済みサンプルを使い、`artifacts/preview-home-mobile.png`、`preview-checklist-mobile.png`、`preview-home-desktop.png`、`preview-templates-desktop.png` を生成する。利用者の保存データを変更しない。375pxと1280pxでヘッダ・フッター・項目の折り返し・横方向のはみ出しがないことを確認した。
 
 ## 試用・次の確認
 

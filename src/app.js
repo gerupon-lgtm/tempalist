@@ -69,7 +69,13 @@ function editItem(itemId){
 }
 function writeBack(){
   const {id,entity}=current();const source=state.templates.find(t=>t.id===entity.sourceTemplateId);
-  openDialog('テンプレートに書き戻す',`<p>項目・メモ・並び順を保存します。チェック状態・タイトル・期限は書き戻しません。</p>`+field('保存方法',`<select name="mode">${source?`<option value="overwrite">元の「${e(source.name)}」に上書き</option>`:''}<option value="new">新しいテンプレートとして登録</option></select>`)+field('新規登録する場合の名前',input('name',entity.title,true))+(source?`<p class="notice">上書きを選ぶと元の項目を置き換えます。${source.status==='archived'?'アーカイブから使用中に戻します。':source.status==='draft'?'下書きの状態を維持します。':''}</p>`:''),{submit:'書き戻す',onSubmit:async f=>{await commit(s=>domain.writeBack(s,id,{mode:f.get('mode'),name:f.get('name')}));toast('テンプレートに保存しました');}});
+  const checklistUnchanged=s=>JSON.stringify(entityIn(s,'checklist',id))===JSON.stringify(entity);
+  const sourceUnchanged=s=>source&&JSON.stringify(entityIn(s,'template',source.id))===JSON.stringify(source);
+  openDialog('テンプレートに書き戻す',`<p>項目・メモ・並び順を保存します。チェック状態・タイトル・期限は書き戻しません。</p>`+field('保存方法',`<select name="mode">${source?`<option value="overwrite">元の「${e(source.name)}」に上書き</option>`:''}<option value="new">新しいテンプレートとして登録</option></select>`)+field('新規登録する場合の名前',input('name',entity.title,true))+(source?`<p class="notice">上書きを選ぶと元の項目を置き換えます。${source.status==='archived'?'アーカイブから使用中に戻します。':source.status==='draft'?'下書きの状態を維持します。':''}</p>`:''),{submit:'書き戻す',onSubmit:async f=>{
+    const mode=f.get('mode');
+    await commit(s=>domain.writeBack(s,id,{mode,name:f.get('name')}),s=>checklistUnchanged(s)&&(mode!=='overwrite'||sourceUnchanged(s)));
+    toast('テンプレートに保存しました');
+  }});
 }
 function share(){
   const {entity}=current(),data=shareTemplate(entity);
@@ -114,6 +120,7 @@ function render(){
   if(bytes>=WARNING_BYTES)main.insertAdjacentHTML('afterbegin','<div class="notice">保存容量が少なくなっています。バックアップを保存し、不要なデータを整理してください。 <button data-action="capacity">容量を整理する</button></div>');
   const retention=document.querySelector('#retention');if(retention)retention.onchange=()=>{
     const value=retention.value;
+    retention.value=state.settings.completedRetention;
     confirmAction('保持期間を変更',value==='keep'?'完了リストを自動削除しない設定に変更します。':'変更後の保持期間を過ぎた完了リストは削除されます。必要なデータは先に書き出してください。',async()=>{await commit(s=>({...s,settings:{...s.settings,completedRetention:value}}));},'変更する');
   };
   const file=document.querySelector('#import-file');if(file)file.onchange=()=>action(async()=>{const selected=file.files[0];file.value='';if(selected)importPreview(parseTransfer(await selected.text()));});
