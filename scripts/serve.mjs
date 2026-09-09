@@ -7,8 +7,8 @@ const types = { '.html':'text/html; charset=utf-8', '.css':'text/css; charset=ut
 http.createServer(async (request, response) => {
   try {
     const pathname = decodeURIComponent(new URL(request.url, 'http://localhost').pathname);
-    const file = pathname === '/' || pathname === '/list' || pathname === '/list/' ? '/index.html' : pathname;
-    if (!/^\/(?:index\.html|manifest\.webmanifest|sw\.js|src\/[\w/-]+\.(?:js|css)|assets\/[\w-]+\.(?:svg|png))$/.test(file)) {
+    const file = pathname === '/' || pathname === '/list' || pathname === '/list/' ? '/index.html' : pathname === '/update' || pathname === '/update/' ? '/update/index.html' : pathname;
+    if (!/^\/(?:index\.html|update\/index\.html|manifest\.webmanifest|sw\.js|src\/[\w/-]+\.(?:js|css)|assets\/[\w-]+\.(?:svg|png))$/.test(file)) {
       response.writeHead(404); response.end('Not found'); return;
     }
     const content=await readFile(resolve(root, '.' + file));

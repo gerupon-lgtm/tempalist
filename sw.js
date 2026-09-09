@@ -1,6 +1,7 @@
-const VERSION='0.3.0';
+const VERSION='0.3.1';
 const CACHE=`tempalist-shell-${VERSION}`;
 const SHELL=['/','/index.html','/manifest.webmanifest','/assets/icon.svg','/assets/icon-192.png','/assets/icon-512.png',
+ '/update/','/update/index.html','/src/pwa.js','/src/update-page.js',
  '/src/app.js','/src/card-interactions.js','/src/checklist-record.js','/src/dates.js','/src/domain.js','/src/reorder.js','/src/samples.js','/src/storage.js','/src/styles.css','/src/transfer.js','/src/ui.js','/src/version.js','/src/views.js',
  '/src/notification/api.js','/src/notification/queue.js','/src/notification/runtime.js','/src/notification/device.js'];
 const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -10,7 +11,16 @@ const notifications={
 };
 function object(value){return value!==null&&typeof value==='object'&&!Array.isArray(value);}
 function validClick(value){return object(value)&&Object.keys(value).length===2&&value.routeKey==='list'&&typeof value.reminderId==='string'&&UUID.test(value.reminderId);}
-self.addEventListener('install',event=>event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(SHELL))));
+self.addEventListener('install',event=>event.waitUntil((async()=>{
+ const cache=await caches.open(CACHE);
+ // SW script updates bypass HTTP cache; its app files must do the same.
+ await cache.addAll(SHELL.map(path=>new Request(path,{cache:'reload'})));
+ const version=await (await cache.match('/src/version.js')).text();
+ const manifest=await (await cache.match('/manifest.webmanifest')).json();
+ if(!version.includes(`APP_VERSION = '${VERSION}'`)||manifest.version!==VERSION){
+  await caches.delete(CACHE);throw new Error('App files do not match the Service Worker version');
+ }
+})()));
 self.addEventListener('activate',event=>event.waitUntil((async()=>{
  for(const name of await caches.keys())if(name.startsWith('tempalist-shell-')&&name!==CACHE)await caches.delete(name);
  await self.clients.claim();

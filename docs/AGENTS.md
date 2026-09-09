@@ -77,3 +77,5 @@ npm run package:site # _siteに配信対象だけ準備。公開操作は行わ�
 - アイコンライブラリを混在させない（`docs/screens.md` の指定に従う）
 
 - 並び順ロックはテンプレートのdefaultOrderLockedを生成時にコピーし、Checklist.orderLockedで独立管理。旧データはfalse。ロック中の順序変更を保存層でも禁止する。詳細はdata-model.mdのv0.1.6節を参照。
+
+- PWA更新: src/pwa.jsがインストール・更新案内を管理。sw.jsのシェル取得はcache:reloadでHTTP旧版混入を防ぎ、version.js・manifestと版を照合する。無条件のskipWaitingやlocalStorage削除で更新問題を回避しない。旧版用/update/はアプリモジュールに依存しない入口として維持する。pwa-update.md参照。

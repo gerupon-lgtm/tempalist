@@ -2,6 +2,7 @@
 import {it,expect,vi} from 'vitest';
 import {readFileSync} from 'node:fs';
 import vm from 'node:vm';
+import {APP_VERSION} from '../src/version.js';
 const payload={version:2,appId:'tempalist',type:'reminder_due',reminderId:'11111111-1111-4111-8111-111111111111',notificationKey:'deadline_advance',routeKey:'list',groupId:'abcdef0123456789'};
 function worker(){
  const handlers={},showNotification=vi.fn(),openWindow=vi.fn(),clients={matchAll:async()=>[],openWindow,claim:async()=>{}};
@@ -34,4 +35,16 @@ it('opens the safe route if an existing client has closed before focus',async()=
  const w=worker();w.clients.matchAll=async()=>[{url:'https://tempalist.sikumilab.com/',postMessage(){},focus:async()=>{throw new Error('closed');}}];let p;
  w.handlers.notificationclick({notification:{data:{reminderId:payload.reminderId,routeKey:'list'},close(){}},waitUntil:value=>p=value});
  await p;expect(w.openWindow).toHaveBeenCalledWith(`https://tempalist.sikumilab.com/list/?reminderId=${payload.reminderId}`);
+});
+
+it.each([['matching',true],['stale-module',false],['stale-manifest',false]])('installs only a coherent shell: %s',async(mode,valid)=>{
+ const handlers={},cache={addAll:vi.fn(async()=>{}),match:vi.fn(async path=>path==='/src/version.js'?{text:async()=>`export const APP_VERSION = '${mode==='stale-module'?'0.2.1':APP_VERSION}';`}:{json:async()=>({version:mode==='stale-manifest'?'0.2.1':APP_VERSION})})};
+ const caches={open:vi.fn(async()=>cache),delete:vi.fn()};
+ const self={addEventListener:(name,fn)=>handlers[name]=fn};
+ class Request{constructor(url,options){this.url=url;Object.assign(this,options);}}
+ vm.runInNewContext(readFileSync(new URL('../sw.js',import.meta.url),'utf8'),{self,caches,Request,console});
+ let promise;handlers.install({waitUntil:value=>promise=value});
+ if(valid){await promise;expect(caches.delete).not.toHaveBeenCalled();}
+ else{await expect(promise).rejects.toThrow('do not match');expect(caches.delete).toHaveBeenCalledWith('tempalist-shell-'+APP_VERSION);}
+ expect(cache.addAll.mock.calls[0][0].every(request=>request.cache==='reload')).toBe(true);
 });

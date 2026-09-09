@@ -24,6 +24,8 @@
       </a>
       <nav aria-label="メインメニュー"><a href="#/lists" data-nav="lists">リスト</a><a href="#/templates" data-nav="templates">テンプレート</a><a href="#/settings" data-nav="settings">設定</a></nav>
     </header>
+    <aside id="pwa-update" class="pwa-notice" aria-label="アプリの更新" hidden><div><strong>新しいバージョンを使えます</strong><p data-pwa-message></p></div><button type="button" data-pwa-action="update" class="primary">更新する</button></aside>
+    <aside id="pwa-install" class="pwa-notice" aria-label="インストールの案内" hidden><div><strong>ホーム画面から、すぐに確認</strong><p>アプリをインストールして使えます。</p></div><div class="actions"><button type="button" data-pwa-action="install">インストール</button><button type="button" data-pwa-action="dismiss">あとで</button></div></aside>
     <main id="main" tabindex="-1"><p class="loading">リストを読み込んでいます…</p></main>
     <footer class="app-footer"><span id="version"></span><span id="copyright"></span></footer>
   </div>

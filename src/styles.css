@@ -91,4 +91,9 @@ main:has(>.tabs)>.page-heading h1{font-size:clamp(1rem,4.6vw,1.25rem);margin-bot
 .record-alternatives{margin-top:20px;font-size:.85rem}
 .record-alternatives summary{cursor:pointer;padding:8px 0;color:var(--brand)}
 .record-alternatives p{margin-top:12px}
+.pwa-notice{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 14px;margin-top:12px;border:1px solid var(--line);border-radius:12px;background:var(--brand-soft);font-size:.85rem}
+.pwa-notice p{margin:3px 0 0;font-size:.78rem;color:var(--muted)}
+.pwa-notice[hidden],.pwa-notice [hidden]{display:none}
+.pwa-settings{margin-bottom:18px}.pwa-settings .actions{margin-top:12px}
+@media(max-width:680px){.pwa-notice{flex-wrap:wrap}.pwa-notice .actions{gap:6px}}
 @media(max-width:680px){.app-header .brand{padding-bottom:14px;border-bottom:1px solid #d9d9d9}.app-header nav{margin-top:10px}}

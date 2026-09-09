@@ -4,6 +4,7 @@ import {createStore,storageUsage,WARNING_BYTES,StorageFailure} from './storage.j
 import {exportBackup,importBackup,shareTemplate,readSharedTemplate,parseTransfer} from './transfer.js';
 import {APP_VERSION,COPYRIGHT} from './version.js';
 import {createChecklistRecord} from './checklist-record.js';
+import {createPwaController,installHelp} from './pwa.js';
 import {SAMPLE_TEMPLATES} from './samples.js';
 import {escapeHTML as e,openDialog,confirmAction,toast,download,field} from './ui.js';
 import * as view from './views.js';
@@ -21,7 +22,6 @@ function updateNotificationStatus(){
   document.querySelectorAll('[data-notification-status]').forEach(node=>{node.textContent=info.message+(info.pending?`（未同期 ${info.pending}件）`:'');});
   const stop=document.querySelector('[data-action=stop-notifications]');if(stop)stop.disabled=!info.registered;
   const support=document.querySelector('[data-notification-support]');if(support)support.textContent=notificationSupport();
-  const update=document.querySelector('[data-action=update-app]');if(update)update.hidden=!serviceWorkerRegistration?.waiting;
 }
 async function notificationTask(node,task){
   if(notificationBusy)return;notificationBusy=true;node.disabled=true;
@@ -53,6 +53,30 @@ async function checkNotificationConnection(button){
 }
 const main=document.querySelector('main');
 const remarksDrafts=new Map();
+function hasUnsavedInput(){
+ const dialog=document.querySelector('#dialog[open]'),form=dialog?.querySelector('form');
+ return remarksDrafts.size>0||Boolean(form&&dialog.querySelector('[type=submit]')&&JSON.stringify([...new FormData(form)])!==dialog.dataset.initialForm);
+}
+function paintPwa(){
+ const info=pwa.state();
+ document.querySelector('#pwa-update').hidden=!info.canUpdate;
+ document.querySelector('#pwa-install').hidden=!info.showInstall;
+ document.querySelectorAll('[data-pwa-message]').forEach(node=>{node.textContent=info.message;});
+ document.querySelectorAll('[data-pwa-action=install]').forEach(node=>{node.hidden=!info.canInstall;});
+ document.querySelectorAll('[data-pwa-action=check]').forEach(node=>{node.disabled=info.checking;});
+ document.querySelectorAll('[data-pwa-action=update]').forEach(node=>{node.hidden=!info.canUpdate;});
+ const guide=document.querySelector('[data-install-help]');if(guide)guide.textContent=info.installed?'ホーム画面のアプリから開いています。':installHelp();
+}
+const pwa=createPwaController({onChange:paintPwa,hasUnsaved:hasUnsavedInput});
+let lastUpdateCheck=0;
+function checkAppUpdate(){if(Date.now()-lastUpdateCheck<60000)return;lastUpdateCheck=Date.now();void pwa.check();}
+document.addEventListener('click',event=>{
+ const node=event.target.closest('[data-pwa-action]');if(!node)return;
+ if(node.dataset.pwaAction==='install')void pwa.install();
+ else if(node.dataset.pwaAction==='dismiss')pwa.dismissInstall();
+ else if(node.dataset.pwaAction==='check')void pwa.check();
+ else if(node.dataset.pwaAction==='update')pwa.apply();
+});
 function refreshRemarks(){
   const {kind,id,entity}=current(),input=main.querySelector('#checklist-remarks');
   if(kind!=='checklist'||!entity||!input)return;
@@ -73,6 +97,7 @@ async function saveRemarks(id){
   if(latest?.value===value)remarksDrafts.delete(id);
   else if(latest){latest.base=value;latest.baseTime=entityIn(saved,'checklist',id).remarksUpdatedAt;}
   refreshRemarks();
+  paintPwa();
 }
 main.addEventListener('input',event=>{
   if(event.target.id!=='checklist-remarks')return;
@@ -231,6 +256,7 @@ function render(){
   };
   const file=document.querySelector('#import-file');if(file)file.onchange=()=>action(async()=>{const selected=file.files[0];file.value='';if(selected)importPreview(parseTransfer(await selected.text()));});
   refreshRemarks();
+  paintPwa();
   updateNotificationStatus();
 }
 main.addEventListener('change',event=>{
@@ -251,7 +277,7 @@ main.addEventListener('click',event=>{
       case 'stop-notifications':return confirmAction('この端末の通知を停止','この端末のすべての通知予約を取り消します。通信できない場合は取消が保留され、通知が届くことがあります。',async()=>{
         await commit(s=>({...s,checklists:s.checklists.map(list=>({...list,notificationEnabled:false}))}));await notificationRuntime.disable();
       },'停止する');
-      case 'update-app':return serviceWorkerRegistration?.waiting?.postMessage({type:'tempalist:activate-update'});
+      case 'update-app':return pwa.apply();
       case 'check-notification-connection':return checkNotificationConnection(node);
       case 'new-list':return newList();case 'from-template':return newList(node.dataset.id);
       case 'new-template':return newTemplate();
@@ -282,8 +308,8 @@ function route(){
   render();main.classList.toggle('settled-flash',celebrate);celebrate=false;main.focus({preventScroll:true});window.scrollTo(0,0);
 }
 window.addEventListener('hashchange',route);
-window.addEventListener('online',()=>void notificationRuntime?.sync());
-document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'){void notificationRuntime?.sync();void serviceWorkerRegistration?.update();}});
+window.addEventListener('online',()=>{void notificationRuntime?.sync();checkAppUpdate();});
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'){void notificationRuntime?.sync();checkAppUpdate();}});
 window.addEventListener('storage',event=>{if(event.key==='tempalist:notification')updateNotificationStatus();});
 window.addEventListener('storage',event=>{if(event.key==='tempalist:data'){try{state=store.read();render();toast('別の画面の変更を反映しました');}catch(error){toast(error.message);}}});
 try {
@@ -300,11 +326,8 @@ try {
   if(reminderId){history.replaceState(null,'',location.pathname+location.hash);openReminder(reminderId);}
   if('serviceWorker' in navigator){
     navigator.serviceWorker.addEventListener('message',event=>{if(event.source?.scriptURL===new URL('/sw.js',location.origin).href&&event.data?.type==='tempalist:notification-click')openReminder(event.data.reminderId);});
-    let controlled=Boolean(navigator.serviceWorker.controller);
-    navigator.serviceWorker.addEventListener('controllerchange',()=>{if(controlled)location.reload();controlled=true;});
     navigator.serviceWorker.register('/sw.js',{updateViaCache:'none'}).then(reg=>{
-      serviceWorkerRegistration=reg;updateNotificationStatus();
-      reg.addEventListener('updatefound',()=>reg.installing?.addEventListener('statechange',updateNotificationStatus));
+      serviceWorkerRegistration=reg;pwa.bind(reg);checkAppUpdate();updateNotificationStatus();
       void notificationRuntime.sync();
     }).catch(()=>{toast('オフライン・通知の準備ができませんでした。再読み込みしてください。');});
   }
