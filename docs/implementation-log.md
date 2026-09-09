@@ -90,3 +90,7 @@ P0〜P3を実装済み。現在はv0.1.3でA1改・Zen Kaku Gothic New（仮採�
 - `tests/card-interactions.test.js` を追加し、全6ファイル89テスト成功。`scripts/browser-card-interactions.mjs` をブラウザ検証へ追加。従来4本に加え、外側でのメニュー閉じ、単一メニュー、短いメモの維持、長いメモの全文・文字列安全性、キーボード、長押しとの区別、画面遷移時の片付け、画面幅変更時の省略再判定を確認。
 - `npm run package:site` と配信物チェックが成功。公開操作なし。
 - 書体を変更した意図は画像の文字の太さへ近づけるためで、比較目的ではなかったことを説明。`scripts/capture-font-comparison.mjs` で同じ配色・サイズ・太さの指定・データを表示したZen Kaku Gothic New／Noto Sans JPの実画面を並べる。成果物は `artifacts/font-comparison.html` と `.png`、個別画像は `font-zen.png`／`font-noto.png`。フォント選択は再確認待ちで、現アプリはNoto Sans JPを維持。
+
+## v0.1.4 — ヘッダ字間・書体確定
+
+発案者指定によりNoto Sans JPを正式採用。英語名の固定幅・均等割り付けをやめ、単語間を約1文字分に調整した。英語名の自然な幅を基準に日本語名の字間も調整。Chromeの320／375／1280pxで、英語・日本語の幅はいずれも159.72px、英語の単語間は10.30px（文字サイズ10.56px）、横はみ出しなしを確認。モバイルのヘッダ画像も目視確認した。静的配信物と版数の整合チェック成功。
