@@ -76,3 +76,8 @@ main:has(>.tabs)>.page-heading h1{font-size:clamp(1rem,4.6vw,1.25rem);margin-bot
 
 .detail-info:has(+.order-lock-setting),.template-actions:has(+.order-lock-setting){margin-bottom:8px}
 .order-lock-setting{padding-top:6px}
+
+/* Subtle separator between the header and page content. */
+.app-header{border-bottom:1px solid #d9d9d9}
+.notification-link{font-size:.78rem;padding:3px 9px;min-height:32px;margin-left:6px}
+.settings-panel [hidden]{display:none}

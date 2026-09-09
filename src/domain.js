@@ -369,7 +369,18 @@ export function updateChecklist(state, id, patch, now) {
   }
   if (updated.dueAt !== null) requireIso(updated.dueAt, '期限');
   if (typeof updated.dueHasTime !== 'boolean' || (updated.dueAt === null && updated.dueHasTime)) fail('期限の時刻指定が不正です');
+  if(!updated.dueAt||!updated.offsets.length)updated.notificationEnabled=false;
   return { ...next, checklists: replaceById(next.checklists, id, updated) };
+}
+
+export function setChecklistNotification(state,id,enabled,now){
+  const next=existingState(state);requireUuid(id,'チェックリストID');
+  const current=findById(next.checklists,id,'チェックリスト');const timestamp=requireNow(now);
+  if(typeof enabled!=='boolean')fail('通知設定が不正です');
+  if(current.status!=='active')fail('確定済みのチェックリストは編集できません');
+  const durations={'-24h':86400000,'-1h':3600000};
+  if(enabled&&(!current.dueAt||!current.offsets.some(offset=>Date.parse(current.dueAt)-durations[offset]>Date.parse(timestamp))))fail('通知できる時刻がありません。期限と通知タイミングを確認してください');
+  return {...next,checklists:replaceById(next.checklists,id,{...current,notificationEnabled:enabled,updatedAt:timestamp})};
 }
 
 export function toggleItem(state, checklistId, itemId, now) {

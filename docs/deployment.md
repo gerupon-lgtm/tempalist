@@ -17,6 +17,8 @@
 
 ## 通知基盤の登録依頼
 
+**現在の状態（v0.2.0）:** 基盤側の登録は完了。公開Originの公開鍵GET 200と予約操作のCORS preflight 204を確認済み。下記のAPP_NOT_FOUNDは登録前の記録。ローカルOriginは現時点で未許可。端末での確認は [notification-verification.md](notification-verification.md) を参照する。
+
 2026-09-10に次の公開鍵APIをOrigin付きで確認した結果、HTTP 404 `APP_NOT_FOUND`。基盤側にこのアプリの登録が必要。
 
 | 項目 | 値 |

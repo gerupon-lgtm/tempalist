@@ -1,0 +1,72 @@
+import {chromium} from 'playwright';
+import assert from 'node:assert/strict';
+const browser=await chromium.launch({channel:'chrome',headless:true});
+const context=await browser.newContext({viewport:{width:375,height:812}});
+const page=await context.newPage(),requests=[];
+await context.grantPermissions(['notifications']);
+const cdp=await context.newCDPSession(page);let registrationId;
+cdp.on('ServiceWorker.workerRegistrationUpdated',({registrations})=>{registrationId=registrations.find(r=>r.scopeURL==='http://127.0.0.1:4173/'&&!r.isDeleted)?.registrationId??registrationId;});
+await cdp.send('ServiceWorker.enable');
+const deviceId='11111111-1111-4111-8111-111111111111';
+await context.addInitScript(()=>{
+ let granted=localStorage.getItem('test:permission')==='granted';
+ Object.defineProperty(Notification,'permission',{get:()=>granted?'granted':'default'});
+ Notification.requestPermission=async()=>{granted=true;localStorage.setItem('test:permission','granted');return 'granted';};
+ const value={endpoint:'https://push.example/test',expirationTime:null,keys:{p256dh:'BA'+'A'.repeat(85),auth:'A'.repeat(22)}};
+ const sub={toJSON:()=>value,unsubscribe:async()=>true};
+ PushManager.prototype.getSubscription=async()=>sub;PushManager.prototype.subscribe=async()=>sub;
+});
+await context.route('https://api.atoqueue.sikumilab.com/v2/**',async route=>{
+ const req=route.request(),url=new URL(req.url()),method=req.method(),body=req.postDataJSON();requests.push({path:url.pathname,method,body,key:req.headers()['idempotency-key']});
+ if(method==='GET')return route.fulfill({json:{publicKey:'BA'+'A'.repeat(85)}});
+ if(method==='POST')return route.fulfill({status:201,json:{appId:'tempalist',protocolVersion:2,deviceId,deviceSecret:'test-secret',createdAt:new Date().toISOString()}});
+ if(method==='DELETE')return route.fulfill({status:204});
+ if(url.pathname.includes('/subscription'))return route.fulfill({json:{appId:'tempalist',deviceId,status:'active',updatedAt:new Date().toISOString()}});
+ assert.deepEqual(Object.keys(body).sort(),['deviceId','notificationKey','routeKey','scheduledAt']);
+ return route.fulfill({status:201,json:{reminderId:url.pathname.split('/').at(-1),status:'pending',scheduledAt:body.scheduledAt,repeatCadence:null,updatedAt:new Date().toISOString()}});
+});
+const state=()=>page.evaluate(()=>JSON.parse(localStorage.getItem('tempalist:notification')));
+const synced=()=>page.waitForFunction(()=>{const s=JSON.parse(localStorage.getItem('tempalist:notification'));return s?.device&&s.maps.length===2&&!s.outbox.length;});
+try{
+ await page.goto('http://127.0.0.1:4173/');await page.getByRole('heading',{level:1}).waitFor();
+ await page.evaluate(()=>navigator.serviceWorker.ready);assert.equal(requests.length,0);
+ await page.getByRole('button',{name:/工場の始業前点検/}).click();
+ const future=new Date(Date.now()+3*86400000).toISOString().slice(0,10).replaceAll('-','');
+ await page.locator('[name=date]').fill(future);await page.locator('[name=time]').fill('1200');
+ await page.getByRole('button',{name:'作成する',exact:true}).click();await page.locator('#dialog').waitFor({state:'hidden'});
+ const checklist=await page.evaluate(()=>location.hash);
+ await page.getByRole('button',{name:'通知を設定',exact:true}).click();await page.getByLabel('このリストの通知を受け取る').check();await page.getByRole('button',{name:'保存する',exact:true}).click();await page.locator('#dialog').waitFor({state:'hidden'});await synced();
+ const first=await state();assert.equal(requests.filter(r=>r.method==='POST').length,1);assert.equal(requests.filter(r=>r.method==='PUT').length,2);
+ assert.ok(registrationId);
+ const reminderId=first.maps[0].reminderId;
+ const worker=context.serviceWorkers()[0];
+ await worker.evaluate(()=>{const original=self.registration.showNotification.bind(self.registration);self.registration.showNotification=async(title,options)=>{self.observedNotification={title,body:options.body,data:options.data};try{await original(title,options);self.observedNotification.result='accepted';}catch(e){self.observedNotification.result=e.name;}};});
+ await cdp.send('ServiceWorker.deliverPushMessage',{origin:'http://127.0.0.1:4173',registrationId,data:JSON.stringify({version:2,appId:'tempalist',type:'reminder_due',reminderId,notificationKey:'deadline_advance',routeKey:'list',groupId:'0123456789abcdef'})});
+ let notification;
+ for(let attempt=0;attempt<30&&!notification;attempt++){
+  notification=await worker.evaluate(()=>self.observedNotification??null);
+  if(!notification)await page.waitForTimeout(100);
+ }
+ assert.ok(notification,'Browser received the simulated push');
+ // The isolated browser verifies the display request; OS presentation is a real-device check.
+ assert.equal(notification.title,'!=テンパリスト');assert.equal(notification.body,'期限が近いチェックリストがあります');assert.equal(notification.data.reminderId,reminderId);
+ await page.getByRole('link',{name:'設定',exact:true}).click();
+ await context.serviceWorkers()[0].evaluate(async id=>{const clients=await self.clients.matchAll({type:'window',includeUncontrolled:true});for(const c of clients)c.postMessage({type:'tempalist:notification-click',reminderId:id});},reminderId);
+ await page.waitForFunction(hash=>location.hash===hash,checklist);
+ await page.reload();await page.getByRole('button',{name:'通知を設定',exact:true}).waitFor();await synced();
+ assert.deepEqual((await state()).maps,first.maps);
+ await page.getByRole('link',{name:'設定',exact:true}).click();await page.getByRole('button',{name:'通知の同期を再試行'}).click();
+ await page.waitForFunction(()=>document.querySelector('[data-action=retry-notifications]')?.disabled===false);
+ assert.equal(requests.filter(r=>r.method==='PUT').length,2);
+ await context.setOffline(true);await page.reload();await page.getByRole('heading',{name:'設定とデータ'}).waitFor();await context.setOffline(false);
+ await page.goto('http://127.0.0.1:4173/'+checklist);await page.getByRole('button',{name:'通知を設定',exact:true}).waitFor();
+ await page.getByRole('button',{name:'完了を確定する',exact:true}).click();await page.getByRole('button',{name:'このまま確定する',exact:true}).click();
+ await page.waitForFunction(()=>{const s=JSON.parse(localStorage.getItem('tempalist:notification'));return s&&!s.maps.length&&!s.outbox.length;});
+ assert.equal(requests.filter(r=>r.method==='DELETE'&&r.path.includes('/reminders/')).length,2);
+ await page.getByRole('link',{name:'設定',exact:true}).click();await page.getByRole('button',{name:'この端末の通知を停止',exact:true}).click();await page.getByRole('button',{name:'停止する',exact:true}).click();
+ await page.waitForFunction(()=>JSON.parse(localStorage.getItem('tempalist:notification')).device===null);
+ assert.equal(requests.filter(r=>r.method==='DELETE'&&r.path.includes('/devices/')).length,1);
+ const border=await page.locator('.app-header').evaluate(node=>getComputedStyle(node).borderBottomWidth);assert.equal(border,'1px');
+ await page.screenshot({path:'artifacts/notifications-settings-mobile.png',fullPage:true});
+ console.log('Notifications: registration, two anonymous slots, browser push handling/display request, reminder routing, no duplicate on reload/retry, offline shell, settlement cancellation, device disable, header separator: OK');
+}finally{await browser.close();}

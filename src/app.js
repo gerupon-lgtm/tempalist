@@ -9,14 +9,44 @@ import * as view from './views.js';
 import {attachReorder} from './reorder.js';
 import {attachCardInteractions} from './card-interactions.js';
 import {createNotificationApi} from './notification/api.js';
+import {isUuid} from './notification/api.js';
+import {createNotificationRuntime} from './notification/runtime.js';
+import {createBrowserDevice,notificationSupport} from './notification/device.js';
 const notificationApi=createNotificationApi();
+let notificationRuntime=null,notificationBusy=false,serviceWorkerRegistration=null;
+function updateNotificationStatus(){
+  if(!notificationRuntime)return;
+  const info=notificationRuntime.status();
+  document.querySelectorAll('[data-notification-status]').forEach(node=>{node.textContent=info.message+(info.pending?`（未同期 ${info.pending}件）`:'');});
+  const stop=document.querySelector('[data-action=stop-notifications]');if(stop)stop.disabled=!info.registered;
+  const support=document.querySelector('[data-notification-support]');if(support)support.textContent=notificationSupport();
+  const update=document.querySelector('[data-action=update-app]');if(update)update.hidden=!serviceWorkerRegistration?.waiting;
+}
+async function notificationTask(node,task){
+  if(notificationBusy)return;notificationBusy=true;node.disabled=true;
+  try{await task();}finally{notificationBusy=false;node.disabled=false;updateNotificationStatus();}
+}
+function notificationSettings(entity){
+  openDialog('期限の通知',`<label class="default-lock-field"><input type="checkbox" name="enabled" ${entity.notificationEnabled?'checked':''}>このリストの通知を受け取る</label><p>期限をもとに通知します。通知にはタイトルや項目の内容を表示しません。</p>${[['-24h','24時間前'],['-1h','1時間前']].map(([value,label])=>`<label class="default-lock-field"><input type="checkbox" name="offset" value="${value}" ${entity.offsets.includes(value)?'checked':''}>${label}</label>`).join('')}<p>${e(notificationSupport()||'初回はブラウザから通知の許可を求めます。')}</p>`,{submit:'保存する',onSubmit:async f=>{
+    const enabled=f.has('enabled'),offsets=f.getAll('offset');
+    // Validate the intended schedule before requesting permission or registering a device.
+    domain.setChecklistNotification(domain.updateChecklist(store.read(),entity.id,{offsets}),entity.id,enabled);
+    if(enabled)await notificationRuntime.enable();
+    await commit(s=>domain.setChecklistNotification(domain.updateChecklist(s,entity.id,{offsets}),entity.id,enabled));
+    toast(enabled?'通知設定を保存しました。同期状況は設定画面で確認できます。':'通知をOFFにしました。');
+  }});
+}
+function openReminder(id){
+  let checklistId;try{checklistId=isUuid(id)?notificationRuntime?.findChecklist(id):null;}catch{/* Missing mappings fall back to the list overview. */}
+  go(checklistId&&state.checklists.some(list=>list.id===checklistId)?'checklist/'+checklistId:'lists');
+}
 async function checkNotificationConnection(button){
   const status=document.querySelector('#notification-connection-status');
   if(!status||button.disabled)return;
   button.disabled=true;status.textContent='接続を確認しています…';
   try{
     await notificationApi.getPublicKey();
-    status.textContent='通知基盤に接続できました。通知の有効化は、連携の準備完了後にご案内します。';
+    status.textContent='通知基盤に接続できました。通知は各リストの「通知を設定」からONにできます。';
   }catch(error){status.textContent=error.message;}
   finally{button.disabled=false;}
 }
@@ -44,7 +74,7 @@ async function commit(change,expected=null) {
     let next=change(current);
     const expired=domain.expiredChecklistIds(next);
     if(expired.length)next=domain.removeChecklists(next,expired);
-    state=store.save(next,current.revision);render();return state;
+    state=store.save(next,current.revision);render();void notificationRuntime?.sync();return state;
   };
   try {return navigator.locks?await navigator.locks.request('tempalist:data',save):save();}
   catch(error){if(error.kind==='quota')capacity(true);throw error;}
@@ -148,6 +178,7 @@ function render(){
     confirmAction('保持期間を変更',value==='keep'?'完了リストを自動削除しない設定に変更します。':'変更後の保持期間を過ぎた完了リストは削除されます。必要なデータは先に書き出してください。',async()=>{await commit(s=>({...s,settings:{...s.settings,completedRetention:value}}));},'変更する');
   };
   const file=document.querySelector('#import-file');if(file)file.onchange=()=>action(async()=>{const selected=file.files[0];file.value='';if(selected)importPreview(parseTransfer(await selected.text()));});
+  updateNotificationStatus();
 }
 main.addEventListener('change',event=>{
   if(!event.target.matches('[data-check]'))return;
@@ -159,6 +190,13 @@ main.addEventListener('click',event=>{
   const name=node.dataset.action,{kind,id,entity}=current(),row=node.closest('[data-item]'),itemId=row?.dataset.item,index=Number(row?.dataset.index);
   action(async()=>{
     switch(name){
+      case 'notification-settings':return notificationSettings(entity);
+      case 'enable-notifications':return notificationTask(node,async()=>{await notificationRuntime.enable();await notificationRuntime.sync();});
+      case 'retry-notifications':return notificationTask(node,()=>notificationRuntime.retry());
+      case 'stop-notifications':return confirmAction('この端末の通知を停止','この端末のすべての通知予約を取り消します。通信できない場合は取消が保留され、通知が届くことがあります。',async()=>{
+        await commit(s=>({...s,checklists:s.checklists.map(list=>({...list,notificationEnabled:false}))}));await notificationRuntime.disable();
+      },'停止する');
+      case 'update-app':return serviceWorkerRegistration?.waiting?.postMessage({type:'tempalist:activate-update'});
       case 'check-notification-connection':return checkNotificationConnection(node);
       case 'new-list':return newList();case 'from-template':return newList(node.dataset.id);
       case 'new-template':return newTemplate();
@@ -189,6 +227,9 @@ function route(){
   render();main.classList.toggle('settled-flash',celebrate);celebrate=false;main.focus({preventScroll:true});window.scrollTo(0,0);
 }
 window.addEventListener('hashchange',route);
+window.addEventListener('online',()=>void notificationRuntime?.sync());
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'){void notificationRuntime?.sync();void serviceWorkerRegistration?.update();}});
+window.addEventListener('storage',event=>{if(event.key==='tempalist:notification')updateNotificationStatus();});
 window.addEventListener('storage',event=>{if(event.key==='tempalist:data'){try{state=store.read();render();toast('別の画面の変更を反映しました');}catch(error){toast(error.message);}}});
 try {
   store=createStore(localStorage,domain.validateState);
@@ -198,7 +239,20 @@ try {
     const expired=domain.expiredChecklistIds(state);if(expired.length)state=store.save(domain.removeChecklists(state,expired),state.revision);
   };
   if(navigator.locks)await navigator.locks.request('tempalist:data',initialize);else initialize();
+  notificationRuntime=createNotificationRuntime({storage:localStorage,api:notificationApi,device:createBrowserDevice(),readLists:()=>store.read().checklists,onChange:updateNotificationStatus});
   route();
+  const reminderId=new URL(location.href).searchParams.get('reminderId');
+  if(reminderId){history.replaceState(null,'',location.pathname+location.hash);openReminder(reminderId);}
+  if('serviceWorker' in navigator){
+    navigator.serviceWorker.addEventListener('message',event=>{if(event.source?.scriptURL===new URL('/sw.js',location.origin).href&&event.data?.type==='tempalist:notification-click')openReminder(event.data.reminderId);});
+    let controlled=Boolean(navigator.serviceWorker.controller);
+    navigator.serviceWorker.addEventListener('controllerchange',()=>{if(controlled)location.reload();controlled=true;});
+    navigator.serviceWorker.register('/sw.js',{updateViaCache:'none'}).then(reg=>{
+      serviceWorkerRegistration=reg;updateNotificationStatus();
+      reg.addEventListener('updatefound',()=>reg.installing?.addEventListener('statechange',updateNotificationStatus));
+      void notificationRuntime.sync();
+    }).catch(()=>{toast('オフライン・通知の準備ができませんでした。再読み込みしてください。');});
+  }
 } catch(error){
   main.innerHTML=`<div class="notice"><h1>保存データを確認してください</h1><p>${e(error.message)}</p><button id="rescue">元データを書き出す</button><p>保存データは上書きしていません。書き出したファイルを保管し、復旧をご相談ください。</p></div>`;
   document.querySelector('#rescue').onclick=()=>action(()=>download('tempalist-recovery.txt',store?.raw()??'保存データにアクセスできません','text/plain'));

@@ -7,7 +7,7 @@
 - Origin: `https://tempalist.sikumilab.com`（開発時は localhost も登録が必要）
 - 正典: `notification-platform-v2.md`。本書と食い違う場合は仕様書が優先
 - 正式名称: `!=テンパリスト` / 英語表記: NOT EQUAL TEMPALIST
-- 2026-09-10: APIへ到達しHTTP 404 `APP_NOT_FOUND` を確認。発案者が別タスクでアプリ登録する。v0.1.7は `src/notification/api.js` に公開鍵GETとstrict応答検証を実装し、設定画面の明示操作で接続確認できる。端末登録以降は未実装。登録内容はdeployment.md参照
+- v0.2.0: 基盤側登録完了後、公開Originの公開鍵GET 200と予約操作のCORS preflight 204を確認。6APIの通信、端末登録、Outbox、予約・取消、SW受信・遷移、起動時修復を実装。ローカルOriginはAPP_ORIGIN_FORBIDDEN。実機配送はnotification-verification.mdに沿って確認する。
 
 ## 1. Registry申請内容（共通基盤管理者へ依頼する）
 
@@ -52,7 +52,7 @@
 ```
 期限(dueAt, UTC) + オフセット = scheduledAt
 残り時間 = 期限 - scheduledAt
-残り時間 <= 2時間  → notificationKey = "deadline_imminent"   【想定】
+残り時間 <= 2時間  → notificationKey = "deadline_imminent"
 それ以外           → notificationKey = "deadline_advance"
 ```
 
@@ -82,7 +82,7 @@
 4. VAPID公開鍵を取得
 5. `pushManager.subscribe({ userVisibleOnly: true, applicationServerKey })`
 6. 端末登録APIへ購読を送信
-7. `appId` / `deviceId` / `deviceSecret` / `protocolVersion` / `registeredAt` を端末内へ保存
+7. `appId` / `deviceId` / `deviceSecret` / `protocolVersion` / `createdAt` を端末内へ保存
 
 どこかで失敗したら**通知有効として扱わない**。業務データは変更しない。
 
@@ -143,3 +143,12 @@ tag は `${tagPrefix}-${groupId}`。通知dataには `reminderId` と `routeKey`
 | 通信断 | 「通知の登録が保留中です」 | オンライン復帰時に再送 |
 
 いずれの場合も**チェックリストの編集・保存は継続できる**。
+
+## v0.2.0 実装補足
+
+- `api.js`は6APIを固定Originへ送信し、request/responseをstrictに検証。登録のappId、購読更新のdeviceId、予約応答のreminderId不一致は未成功とする。Cookieとredirectは無効、通信は10秒タイムアウト。
+- 登録POSTは非冪等のため自動再送しない。利用者の再操作が必要。購読更新・端末停止は操作キーを先に保存する。登録成功後に端末保存が失敗した場合は、新規端末の無効化・購読解除を試みる。
+- 通知状態を1つのlocalStorageスナップショットに保存する。Web Locksで通知操作を直列化し、送信前・次の操作前に最新の業務状態を照合。業務保存は通知API待ちにしない。
+- 自動再送は通信断・429・500・503のみ。指数バックオフは最大1時間、Retry-Afterが長ければそちらを優先する。永久エラーは保留を維持し「通知の同期を再試行」の明示操作まで停止する。
+- DEVICE_NOT_FOUND／401では資格情報と対応表を破棄し、再設定を案内する。業務データは変えない。REMINDER_NOT_FOUNDの取消は解消済みとして扱い、upsertは対応を再構築して明示再試行を待つ。
+- SWは固定の/list/パスと検証済みreminderIdのクエリを生成する。既存画面にはmessageでIDを渡してfocus。アプリがローカル対応表で対象を解決し、存在しなければ一覧へ戻る。

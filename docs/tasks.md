@@ -2,7 +2,7 @@
 
 上から順に実装する。P1〜P3の試用後にP4へ進む計画だったが、2026-09-10の発案者指示でPages公開・通知基盤接続確認に着手した。
 
-要件定義書v1.13の決定を反映した実装予定。正式名称は `!=テンパリスト`、英語表記は NOT EQUAL TEMPALIST、`appId=tempalist`、公開Originは `https://tempalist.sikumilab.com`。共通基盤v2は発案者からデプロイ済みとの報告あり。アプリへの通知連携と実機検証は後続P4とする。下表の「確定」は設計の状態であり、実装完了を意味しない。現在の実装・検証状況は [implementation-log.md](implementation-log.md) を参照。T-01〜T-14のフロントは試用可能、T-15〜T-20の端末登録・通知予約・Push受信は未実装。T-21はユニット検証済み、T-22はv0.1.6の画面操作を発案者確認済み。Pages公開・HTTPS設定済み。v0.1.7は設定画面の公開鍵API接続確認まで実装。APIはAPP_NOT_FOUNDのため、発案者が別タスクで基盤側を登録後、T-15〜T-20の通知実装を継続する。
+要件定義書v1.13を基準とする。公開Originは `https://tempalist.sikumilab.com`、appIdはtempalist。v0.2.0でT-01〜T-20の実装を完了し、ユニットと隔離ブラウザで検証。基盤の公開鍵・CORS接続も成功。iOS/Android実機での通知表示・タップと長期試用は残件（notification-verification.md）。コード実装完了と実機配送検証完了を区別する。
 
 ## P0 基盤
 

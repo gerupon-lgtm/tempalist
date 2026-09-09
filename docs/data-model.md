@@ -7,11 +7,9 @@
 | キー | 内容 |
 | --- | --- |
 | `tempalist:data` | `{schemaVersion:1, revision, templates, checklists, settings}` の単一JSONスナップショット |
-| `tempalist:notification:device` | 端末登録情報（**エクスポート対象外**） |
-| `tempalist:notification:map` | reminderId ↔ ローカル対応表（**エクスポート対象外**） |
-| `tempalist:notification:outbox` | 未同期の通知操作（**エクスポート対象外**） |
+| `tempalist:notification` | `{schemaVersion:1, device, subscription, maps, outbox, disable, subscriptionChange?}`（**エクスポート対象外**） |
 
-業務データは1回のsetItemで保存し、容量不足で部分更新しない。`revision` は保存のたびに増加する。対応ブラウザではWeb Locksで同じOriginの書き込みを直列化し、未対応時もrevisionで直前の変更を検出する。編集中の対象が別タブで変わった場合は保存を拒否して入力を残す。通知用3キーは予約領域であり、v0.1.0では読み書きしない。
+業務データは1回のsetItemで保存し、容量不足で部分更新しない。`revision` は保存のたびに増加する。対応ブラウザではWeb Locksで同じOriginの書き込みを直列化し、未対応時もrevisionで直前の変更を検出する。編集中の対象が別タブで変わった場合は保存を拒否して入力を残す。v0.2.0では通知用の単一キーへ1回のsetItemで対応表とOutboxを保存する。旧設計の3キーは未使用だったため移行対象なし。
 
 ## 2. エンティティ
 
@@ -86,7 +84,7 @@ interface NotificationDeviceState {
   deviceId: string;
   deviceSecret: string;
   protocolVersion: 2;
-  registeredAt: string;
+  createdAt: string;
 }
 
 interface ReminderMapping {
@@ -95,7 +93,7 @@ interface ReminderMapping {
   slotKey: string;           // オフセット文字列。checklistId との組で一意
   notificationKey: "deadline_advance" | "deadline_imminent";
   routeKey: "list";
-  scheduledAt: string;       // 送信済みの絶対時刻（UTC）
+  scheduledAt: string;       // 最後にキューへ反映した予約時刻（UTC）。送信済みとは限らない
 }
 
 interface OutboxItem {
@@ -138,7 +136,7 @@ interface OutboxItem {
 }
 ```
 
-- **通知関連の3キーは含めない**（`device` / `map` / `outbox`）
+- **通知状態のキーは含めない**（端末資格情報、購読、対応表、Outbox、停止・購読更新の操作）
 - 取り込んだチェックリストは `notificationEnabled: false` に強制する
 - `schemaVersion` が未知なら取り込みを中止し、理由を表示する
 - リスト・テンプレートの取り込みは**追加**とし、既存データを上書き・削除しない。ID衝突時は取り込み側を新IDに振り直す。同じファイルの再取り込みも別データとして追加する
@@ -175,3 +173,12 @@ interface OutboxItem {
 - ONのチェックリストではreorderItemsを拒否し、updateChecklistのitems経由でも既存項目の相対順序変更を拒否する。ラベル・メモ編集、チェック、項目追加・削除は可能。完了確定中は従来どおりすべての編集とロック切替を禁止し、再開時にorderLockedを維持する。
 - テンプレート複製・共有JSON／URL・バックアップ取り込みで設定を保持する。既存テンプレートへの書き戻しはそのdefaultOrderLockedを維持し、新規テンプレートへの書き戻しはリストのorderLockedを初期値として設定する。
 - sessionStorageの `tempalist:last-checklist` はそのブラウザタブで最後に開いたChecklist.idを保持する一時的な画面状態。チェックリスト本体は従来どおりlocalStorageのみ。エクスポート対象外。明示的に一覧へ戻るか、対象が削除された場合は記録を消す。sessionStorageが使えない場合はメモリ内で継続する。
+
+## v0.2.0 通知状態の保存
+
+通知状態の実際の構造は `src/notification/queue.js` と `runtime.js` が管理する。ReminderMappingはreminderId/checklistId/slotKey/scheduledAt、OutboxItemはid/operation/reminderId/body?/attemptCount/nextAttemptAt/blocked/error?。notificationKey/routeKeyはupsertのbodyにだけ含む。nextAttemptAtはUTCのISO文字列。
+
+- `subscription` はブラウザ購読のJSON。`subscriptionChange` は変更後購読と保存済み操作キーを持つ。`disable` は端末停止の操作キー・試行回数・次回時刻・停止状態を持つ。
+- 通知送信前にOutboxを保存し、検証済み成功応答を受けた後だけ操作を除去する。取消の対応表は成功まで保持。送信済みの過去枠はタップ解決用に残し、起動時に再作成しない。
+- 通知処理用Web Lockは `tempalist:notification`。業務保存用ロックとは別で、通信待ちがチェック操作を妨げない。通知の有効化はWeb Locks対応ブラウザに限定する。
+- 期限または全オフセットの削除時はnotificationEnabledをfalseにする。完了・再開・インポートも従来どおりfalse。端末全体の通知停止は全リストをfalseにする。
