@@ -7,10 +7,11 @@ import {SAMPLE_TEMPLATES} from './samples.js';
 import {escapeHTML as e,openDialog,confirmAction,toast,download,field} from './ui.js';
 import * as view from './views.js';
 import {attachReorder} from './reorder.js';
+import {attachCardInteractions} from './card-interactions.js';
 const main=document.querySelector('main');
 document.querySelector('#version').textContent=`v${APP_VERSION}`;
 document.querySelector('#copyright').textContent=COPYRIGHT;
-let store,state,listTab='active',templateTab='active',stopDrag=()=>{},celebrate=false;
+let store,state,listTab='active',templateTab='active',stopDrag=()=>{},stopCards=()=>{},celebrate=false;
 const entityIn=(s,kind,id)=>(kind==='template'?s.templates:s.checklists).find(x=>x.id===id);
 const locationInfo=()=>{const [,page='lists',id]=location.hash.split('/');return {page,id};};
 const go=path=>{location.hash='/'+path;};
@@ -105,7 +106,7 @@ function capacity(quota=false){
   dialog.showModal();
 }
 function render(){
-  stopDrag();if(!state)return;
+  stopDrag();stopCards();if(!state)return;
   const {page,id}=locationInfo();
   document.querySelectorAll('[data-nav]').forEach(a=>{if(a.dataset.nav===(page==='template'?'templates':page==='checklist'?'lists':page))a.setAttribute('aria-current','page');else a.removeAttribute('aria-current');});
   let bytes=0;try{bytes=storageUsage(localStorage);}catch{/* read errors handled by the store */}
@@ -115,6 +116,7 @@ function render(){
   else if(page==='template'||page==='checklist'){
     const entity=entityIn(state,page,id);
     main.innerHTML=entity?view.detail(entity,page):'<div class="empty-state"><h1>リストが見つかりません</h1><p>削除されたか、この端末に保存されていません。</p><a href="#/lists">一覧に戻る</a></div>';
+    if(entity)stopCards=attachCardInteractions(main,itemId=>entity.items.find(item=>item.id===itemId));
     if(entity&&(page==='template'||entity.status==='active'))stopDrag=attachReorder(main,(from,to)=>action(()=>commit(s=>domain.reorderItems(s,page,id,from,to))));
   } else main.innerHTML='<h1>ページが見つかりません</h1><a href="#/lists">リストへ</a>';
   if(bytes>=WARNING_BYTES)main.insertAdjacentHTML('afterbegin','<div class="notice">保存容量が少なくなっています。バックアップを保存し、不要なデータを整理してください。 <button data-action="capacity">容量を整理する</button></div>');

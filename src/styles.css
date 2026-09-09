@@ -43,3 +43,16 @@ input[type=checkbox]:disabled{cursor:default}
 .detail-info p{font-weight:500}
 
 @media(max-width:680px){.app-header nav a{white-space:nowrap;flex:1 1 auto;padding-inline:5px;font-size:.95rem}}
+
+.item-copy .item-note{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:3;overflow:hidden}
+.note-more{display:block;font-size:.78rem;color:var(--brand);text-decoration:underline;text-underline-offset:3px;margin-top:5px}
+[data-note-trigger]:focus-visible{outline:2px solid var(--brand);outline-offset:3px;border-radius:4px}
+#note-panel{position:fixed;z-index:25;left:50%;bottom:calc(16px + env(safe-area-inset-bottom));transform:translateX(-50%);width:min(620px,calc(100% - 28px));max-height:45svh;overflow:auto;overscroll-behavior:contain;background:var(--surface);border:1px solid var(--line);border-top:3px solid var(--accent);border-radius:14px;box-shadow:0 10px 45px #14243230;padding:18px 20px}
+#note-panel[hidden]{display:none}
+.note-panel-heading{display:flex;align-items:start;gap:16px;justify-content:space-between;margin-bottom:12px}
+.note-panel-heading h2{font-size:1rem;line-height:1.6;margin:0;overflow-wrap:anywhere}
+.note-panel-heading button{font-size:.8rem;flex-shrink:0;min-height:44px}
+.note-panel-body{white-space:pre-wrap;overflow-wrap:anywhere;font-size:.92rem;line-height:1.8;margin:0;user-select:text}
+body:has(#note-panel:not([hidden])) #toast{bottom:calc(47svh + 24px)}
+
+.item-menu .menu-actions{top:50%;right:90px;transform:translateY(-50%)}

@@ -32,6 +32,7 @@ export function attachReorder(container, move) {
   }
   function lift() {
     if(!active)return;
+    container.dispatchEvent(new Event('card-gesture-consumed'));
     const {row}=active,rect=row.getBoundingClientRect();
     const ghost=row.cloneNode(true);
     ghost.classList.remove('drag-pending');ghost.classList.add('drag-preview');
@@ -52,7 +53,7 @@ export function attachReorder(container, move) {
   function moving(x,y) {
     active.x=x;active.y=y;
     const dx=x-active.startX,dy=y-active.startY;
-    if(!active.ghost){if(Math.hypot(dx,dy)>10)stop();return;}
+    if(!active.ghost){if(Math.hypot(dx,dy)>10){container.dispatchEvent(new Event('card-gesture-consumed'));stop();}return;}
     active.ghost.style.transform=`translate(${dx}px, ${dy}px)`;target();
   }
   function finish() {
