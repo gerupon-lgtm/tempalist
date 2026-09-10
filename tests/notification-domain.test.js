@@ -17,3 +17,12 @@ it('turns notification choice off when the deadline or all offsets are removed',
  expect(d.updateChecklist(n,id,{dueAt:null},now).checklists[0].notificationEnabled).toBe(false);
  expect(d.updateChecklist(n,id,{offsets:[]},now).checklists[0].notificationEnabled).toBe(false);
 });
+it('explains missing deadlines, empty selection, and elapsed slots separately',()=>{
+ const s=state(),id=s.checklists[0].id;
+ expect(()=>d.setChecklistNotification(d.updateChecklist(s,id,{dueAt:null},now),id,true,now)).toThrow('期限の日付を入力');
+ expect(()=>d.setChecklistNotification(d.updateChecklist(s,id,{offsets:[]},now),id,true,now)).toThrow('1つ以上');
+ expect(()=>d.setChecklistNotification(s,id,true,'2026-09-11T23:30:00.000Z')).toThrow('すべて過ぎています');
+ const mixed=d.setChecklistNotification(s,id,true,'2026-09-11T22:00:00.000Z');
+ expect(mixed.checklists[0].notificationEnabled).toBe(true);
+ expect(d.setChecklistNotification(s,id,false,'2026-09-11T23:30:00.000Z').checklists[0].notificationEnabled).toBe(false);
+});

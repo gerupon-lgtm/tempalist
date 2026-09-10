@@ -393,7 +393,11 @@ export function setChecklistNotification(state,id,enabled,now){
   if(typeof enabled!=='boolean')fail('通知設定が不正です');
   if(current.status!=='active')fail('確定済みのチェックリストは編集できません');
   const durations={'-24h':86400000,'-1h':3600000};
-  if(enabled&&(!current.dueAt||!current.offsets.some(offset=>Date.parse(current.dueAt)-durations[offset]>Date.parse(timestamp))))fail('通知できる時刻がありません。期限と通知タイミングを確認してください');
+  if(enabled){
+    if(!current.dueAt)fail('通知をONにするには、期限の日付を入力してください');
+    if(!current.offsets.length)fail('通知タイミングを1つ以上選んでください');
+    if(!current.offsets.some(offset=>Date.parse(current.dueAt)-durations[offset]>Date.parse(timestamp)))fail('選んだ通知時刻はすべて過ぎています。期限を変更するか、これからの通知タイミングを選んでください');
+  }
   return {...next,checklists:replaceById(next.checklists,id,{...current,notificationEnabled:enabled,updatedAt:timestamp})};
 }
 

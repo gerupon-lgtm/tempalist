@@ -1,5 +1,5 @@
 import * as domain from './domain.js';
-import {parseDeadline} from './dates.js';
+import {parseDeadline,formatDateTime} from './dates.js';
 import {deadlineForm,bindPickers} from './date-time-fields.js';
 import {createStore,storageUsage,WARNING_BYTES,StorageFailure} from './storage.js';
 import {exportBackup,importBackup,shareTemplate,readSharedTemplate,parseTransfer} from './transfer.js';
@@ -29,14 +29,33 @@ async function notificationTask(node,task){
   try{await task();}finally{notificationBusy=false;node.disabled=false;updateNotificationStatus();}
 }
 function notificationSettings(entity){
-  openDialog('期限の通知',`<label class="default-lock-field"><input type="checkbox" name="enabled" ${entity.notificationEnabled?'checked':''}>このリストの通知を受け取る</label><p>期限をもとに通知します。通知にはタイトルや項目の内容を表示しません。</p>${[['-24h','24時間前'],['-1h','1時間前']].map(([value,label])=>`<label class="default-lock-field"><input type="checkbox" name="offset" value="${value}" ${entity.offsets.includes(value)?'checked':''}>${label}</label>`).join('')}<p>${e(notificationSupport()||'初回はブラウザから通知の許可を求めます。')}</p>`,{submit:'保存する',onSubmit:async f=>{
-    const enabled=f.has('enabled'),offsets=f.getAll('offset');
+  const slots=[['-24h','24時間前',86400000],['-1h','1時間前',3600000]];
+  const unchanged=s=>{const current=entityIn(s,'checklist',entity.id);return current&&['dueAt','dueHasTime','notificationEnabled'].every(key=>current[key]===entity[key])&&JSON.stringify(current.offsets)===JSON.stringify(entity.offsets);};
+  const dialog=openDialog('期限の通知',`<label class="default-lock-field"><input type="checkbox" name="enabled" ${entity.notificationEnabled?'checked':''}>このリストの通知を受け取る</label><p>期限より前に通知します。通知にはタイトルや項目の内容を表示しません。</p>${deadlineForm(entity)}${slots.map(([value,label])=>`<label class="default-lock-field"><input type="checkbox" name="offset" value="${value}" ${entity.offsets.includes(value)?'checked':''}><span>${label}<small class="notification-time" data-notification-time="${value}"></small></span></label>`).join('')}<p data-notification-plan role="status"></p><p>${e(notificationSupport()||'初回はブラウザから通知の許可を求めます。')}</p>`,{submit:'保存する',onSubmit:async f=>{
+    const enabled=f.has('enabled'),changes={offsets:f.getAll('offset'),...parseDeadline(f.get('date'),f.get('time'))};
+    if(!unchanged(store.read()))throw new StorageFailure('別の画面で期限または通知設定が更新されました。画面を開き直してください。','conflict');
     // Validate the intended schedule before requesting permission or registering a device.
-    domain.setChecklistNotification(domain.updateChecklist(store.read(),entity.id,{offsets}),entity.id,enabled);
+    domain.setChecklistNotification(domain.updateChecklist(store.read(),entity.id,changes),entity.id,enabled);
     if(enabled)await notificationRuntime.enable();
-    await commit(s=>domain.setChecklistNotification(domain.updateChecklist(s,entity.id,{offsets}),entity.id,enabled));
+    await commit(s=>domain.setChecklistNotification(domain.updateChecklist(s,entity.id,changes),entity.id,enabled),unchanged);
     toast(enabled?'通知設定を保存しました。同期状況は設定画面で確認できます。':'通知をOFFにしました。');
   }});
+  bindPickers(dialog);
+  function preview(){
+    const form=new FormData(dialog.querySelector('form')),status=dialog.querySelector('[data-notification-plan]');
+    dialog.querySelector('.form-error').textContent='';
+    let dueAt;
+    try{dueAt=parseDeadline(form.get('date'),form.get('time')).dueAt;}
+    catch(error){status.textContent=error.message;dialog.querySelectorAll('[data-notification-time]').forEach(node=>node.textContent='');return;}
+    let future=0;
+    for(const [value,,duration] of slots){
+      const at=dueAt?Date.parse(dueAt)-duration:null,available=at!==null&&at>Date.now();
+      dialog.querySelector(`[data-notification-time="${value}"]`).textContent=at===null?'期限未設定':`${formatDateTime(new Date(at).toISOString())}${available?'':'（時刻を過ぎています）'}`;
+      if(available&&form.getAll('offset').includes(value))future++;
+    }
+    status.textContent=!form.has('enabled')?'通知はOFFで保存します。':!dueAt?'通知をONにするには、期限の日付を入力してください。':!form.has('offset')?'通知タイミングを1つ以上選んでください。':!future?'選んだ通知時刻はすべて過ぎています。期限を変更するか、これからの通知タイミングを選んでください。':`${future}件の通知を予約します。時刻を過ぎたタイミングでは通知しません。`;
+  }
+  dialog.querySelector('form').addEventListener('input',preview);dialog.querySelector('form').addEventListener('change',preview);preview();
 }
 function openReminder(id){
   let checklistId;try{checklistId=isUuid(id)?notificationRuntime?.findChecklist(id):null;}catch{/* Missing mappings fall back to the list overview. */}
