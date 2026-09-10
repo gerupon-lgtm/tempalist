@@ -9,7 +9,7 @@
   "display": "standalone",
   "background_color": "#fffefe",
   "theme_color": "#f5614c",
-  "version": "0.3.7",
+  "version": "0.3.8",
   "icons": [
     {
       "src": "/assets/icon-192.png",

@@ -26,6 +26,7 @@ try{
  await page.getByRole('textbox',{name:'リスト全体の備考'}).fill('完了前の備考\n申し送り');
  await page.getByRole('checkbox').first().check();
  await page.waitForFunction(()=>JSON.parse(localStorage.getItem('tempalist:data')).checklists[0].items[0].checked);
+ const checkedAt=(await saved()).items[0].checkedAt;assert.ok(checkedAt&&Number.isFinite(Date.parse(checkedAt)));
  assert.equal(await page.getByRole('textbox',{name:'リスト全体の備考'}).inputValue(),'完了前の備考\n申し送り');
  await page.getByRole('link',{name:'設定',exact:true}).click();
  await page.getByRole('heading',{name:'設定とデータ'}).waitFor();
@@ -35,10 +36,12 @@ try{
  await page.locator('#record-body').waitFor();
  assert.equal((await saved()).remarks,'完了前の備考\n申し送り');
  assert.match(await page.locator('#record-body').inputValue(),/完了日時: 未完了/);
+ assert.ok((await page.locator('#record-body').inputValue()).includes(checkedAt));
  await page.locator('#record-share').click();
  await page.waitForFunction(()=>window.sharedRecord,null,{timeout:5000});
  const shared=await page.evaluate(()=>window.sharedRecord);
  assert.equal(shared.title,'実験の準備 🧪');assert.equal(JSON.parse(shared.json).checklist.settledAt,null);
+ assert.equal(JSON.parse(shared.json).checklist.items[0].checkedAt,checkedAt);
  assert.match(shared.name,/\.json\.txt$/);assert.equal(shared.type,'text/plain');
  assert.equal(shared.text,await page.locator('#record-body').inputValue());
  const imported=await page.evaluate(async text=>(await import('/src/transfer.js')).parseTransfer(text),shared.json);
@@ -65,6 +68,7 @@ try{
  await page.waitForFunction(()=>JSON.parse(localStorage.getItem('tempalist:data')).checklists[0].remarks.startsWith('完了後'));
  await page.reload();
  assert.equal((await saved()).settledAt,completed.settledAt);
+ assert.equal((await saved()).items[0].checkedAt,checkedAt);
  assert.match(await page.getByRole('textbox',{name:'リスト全体の備考'}).inputValue(),/完了後の追記/);
  assert.equal(await page.getByRole('checkbox').first().isDisabled(),true);
  await mkdir('artifacts',{recursive:true});

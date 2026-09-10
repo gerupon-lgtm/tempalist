@@ -61,6 +61,7 @@ interface ChecklistItem {
   label: string;
   note?: string;
   checked: boolean;
+  checkedAt: string | null;           // チェックしたUTC日時。未チェック・旧データの日時不明はnull
 }
 ```
 
@@ -190,3 +191,11 @@ Checklistにremarks（文字列、旧データは空文字）、remarksUpdatedAt
 確定後の編集禁止の例外としてupdateChecklistRemarksだけを許可する。remarks変更時はremarksUpdatedAtとupdatedAtを更新し、settledAt・status・items・通知設定を維持する。同一内容の保存では日時を変えない。画面の未保存入力はタブ内のメモリで保持し、別タブでremarksまたはremarksUpdatedAtが変わっていれば保存を中断して入力を保持する。
 
 1件の記録はkind: checklist-recordとして出力し、全体バックアップとは区別する。設定から取り込む際は既存の追加インポートへ渡し、ID再発行・通知OFF・移行先設定維持の規則を適用する。形式と時刻の意味はchecklist-records.mdを参照。
+
+## v0.3.8 項目のチェック日時
+
+schemaVersion 1への互換的な任意項目追加。ChecklistItem.checkedAtが未定義またはnullならnullに正規化し、文字列があればUTC日時として検証する。checked=falseかつ日時ありの不整合データは取り込みを拒否する。旧チェック済み項目には日時を生成しない。
+
+toggleItemでON時にチェック日時とリストupdatedAtに同じ操作時刻を記録し、OFF時にcheckedAtをnullに戻す。updateChecklist経由でチェック状態を変更しても同じ規則とする。チェック済みのまま項目を編集する場合は保存済みのcheckedAtを維持し、編集入力からの日時差し替えは受け付けない。新しい項目は現在の操作でチェックした場合だけ日時を持つ。
+
+チェック日時は再描画・再起動・完了確定・再開・並べ替え・備考編集で保持する。バックアップと1件の記録の再取り込みでも保持する。テンプレートへの書き戻し・テンプレートから作成した次のリストには引き継がない。

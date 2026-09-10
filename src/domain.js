@@ -105,11 +105,14 @@ function sanitizeTemplate(value) {
 function sanitizeChecklistItem(value) {
   const item = requireObject(value, 'チェックリスト項目');
   if (typeof item.checked !== 'boolean') fail('チェック状態が不正です');
+  const checkedAt = item.checkedAt == null ? null : requireIso(item.checkedAt, 'チェック日時');
+  if (!item.checked && checkedAt !== null) fail('未チェック項目のチェック日時が不正です');
   return {
     id: requireUuid(item.id, 'チェックリスト項目ID'),
     label: requireText(item.label, '項目名'),
     note: optionalNote(item.note),
     checked: item.checked,
+    checkedAt,
   };
 }
 
@@ -196,7 +199,7 @@ function normalizeEditableTemplateItems(items, previousItems = []) {
   return normalized;
 }
 
-function normalizeEditableChecklistItems(items, previousItems = []) {
+function normalizeEditableChecklistItems(items, previousItems, timestamp) {
   if (!Array.isArray(items)) fail('チェックリスト項目が不正です');
   const previousById = new Map(previousItems.map((item) => [item.id, item]));
   const used = new Set();
@@ -208,7 +211,9 @@ function normalizeEditableChecklistItems(items, previousItems = []) {
     used.add(id);
     const checked = item.checked === undefined ? (existing?.checked ?? false) : item.checked;
     if (typeof checked !== 'boolean') fail('チェック状態が不正です');
-    return { id, label: requireText(item.label, '項目名'), note: optionalNote(item.note), checked };
+    // Edits retain the original check time, including unknown times from old records.
+    const checkedAt = checked ? (existing?.checked ? existing.checkedAt : timestamp) : null;
+    return { id, label: requireText(item.label, '項目名'), note: optionalNote(item.note), checked, checkedAt };
   });
   uniqueIds(normalized, 'チェックリスト項目');
   return normalized;
@@ -331,7 +336,7 @@ export function createChecklist(state, input, now) {
     remarksUpdatedAt: null,
     sourceTemplateId,
     orderLocked,
-    items: sourceItems.map((item) => ({ id: freshId(), label: item.label, note: item.note, checked: false })),
+    items: sourceItems.map((item) => ({ id: freshId(), label: item.label, note: item.note, checked: false, checkedAt: null })),
     dueAt,
     dueHasTime,
     notificationEnabled: false,
@@ -354,15 +359,16 @@ export function updateChecklist(state, id, patch, now) {
   for (const key of Object.keys(value)) {
     if (!allowed.has(key)) fail('変更できない項目が含まれています');
   }
+  const timestamp = requireNow(now);
   const updated = {
     ...current,
     title: value.title === undefined ? current.title : requireText(value.title, 'タイトル'),
     orderLocked: value.orderLocked === undefined ? current.orderLocked : optionalBoolean(value.orderLocked, '並び順ロック'),
-    items: value.items === undefined ? current.items : normalizeEditableChecklistItems(value.items, current.items),
+    items: value.items === undefined ? current.items : normalizeEditableChecklistItems(value.items, current.items, timestamp),
     dueAt: value.dueAt === undefined ? current.dueAt : value.dueAt,
     dueHasTime: value.dueHasTime === undefined ? current.dueHasTime : value.dueHasTime,
     offsets: value.offsets === undefined ? current.offsets : sanitizeOffsets(value.offsets),
-    updatedAt: requireNow(now),
+    updatedAt: timestamp,
   };
   if (current.orderLocked && value.items !== undefined) {
     const remaining = new Set(updated.items.map(item => item.id));
@@ -408,10 +414,11 @@ export function toggleItem(state, checklistId, itemId, now) {
   const current = findById(next.checklists, checklistId, 'チェックリスト');
   if (current.status === 'settled') fail('確定済みのチェックリストは編集できません');
   findById(current.items, itemId, '項目');
+  const timestamp = requireNow(now);
   const updated = {
     ...current,
-    items: current.items.map((item) => (item.id === itemId ? { ...item, checked: !item.checked } : item)),
-    updatedAt: requireNow(now),
+    items: current.items.map((item) => (item.id === itemId ? { ...item, checked: !item.checked, checkedAt: item.checked ? null : timestamp } : item)),
+    updatedAt: timestamp,
   };
   return { ...next, checklists: replaceById(next.checklists, checklistId, updated) };
 }

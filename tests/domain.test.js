@@ -47,7 +47,7 @@ function checklist(overrides = {}) {
     remarksUpdatedAt: null,
     orderLocked: false,
     sourceTemplateId: TEMPLATE_ID,
-    items: [{ id: CHECKLIST_ITEM_ID, label: '財布', note: '', checked: false }],
+    items: [{ id: CHECKLIST_ITEM_ID, label: '財布', note: '', checked: false, checkedAt: null }],
     dueAt: '2026-09-12T00:00:00.000Z',
     dueHasTime: false,
     notificationEnabled: false,
@@ -224,7 +224,7 @@ describe('checklist operations', () => {
       ],
     }, LATER);
 
-    expect(result.checklists[0].items[0]).toEqual({ id: CHECKLIST_ITEM_ID, label: '財布', note: '', checked: true });
+    expect(result.checklists[0].items[0]).toEqual({ id: CHECKLIST_ITEM_ID, label: '財布', note: '', checked: true, checkedAt: LATER });
     expect(result.checklists[0].items[1]).toMatchObject({ label: '鍵', note: '', checked: false });
     expect(result.checklists[0].items[1].id).not.toBe(CHECKLIST_ITEM_ID);
     expect(result.checklists[0]).toMatchObject({ title: '更新した旅行', dueAt: null, offsets: ['-1h'], updatedAt: LATER });
@@ -299,8 +299,8 @@ describe('writeback and retention', () => {
   ])('overwrite writeBack maps %s source status to %s and copies only ordered content', (before, after) => {
     const source = template({ status: before });
     const list = checklist({ items: [
-      { id: CHECKLIST_ITEM_ID, label: '先', note: 'a', checked: true },
-      { id: '55555555-5555-4555-8555-555555555555', label: '後', note: 'b', checked: false },
+      { id: CHECKLIST_ITEM_ID, label: '先', note: 'a', checked: true, checkedAt: NOW },
+      { id: '55555555-5555-4555-8555-555555555555', label: '後', note: 'b', checked: false, checkedAt: null },
     ] });
     const result = writeBack(populatedState({ templates: [source], checklists: [list] }), CHECKLIST_ID, { mode: 'overwrite' }, LATER);
     const updated = result.templates[0];
