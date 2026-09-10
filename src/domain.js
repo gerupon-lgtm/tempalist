@@ -113,6 +113,7 @@ function sanitizeChecklistItem(value) {
     note: optionalNote(item.note),
     checked: item.checked,
     checkedAt,
+    ...(item.sourceTaskId===undefined?{}:{sourceTaskId:requireText(item.sourceTaskId,'元の予定ID')}),
   };
 }
 
@@ -124,6 +125,12 @@ function sanitizeOffsets(value) {
   });
   if (new Set(offsets).size !== offsets.length) fail('通知オフセットが重複しています');
   return offsets;
+}
+
+function sanitizeReceivedFrom(value) {
+  const source=requireObject(value,'連携元');
+  if(source.source!=='atoqueue'||typeof source.direct!=='boolean')fail('連携元が不正です');
+  return {source:'atoqueue',requestId:requireUuid(source.requestId,'連携ID').toLowerCase(),direct:source.direct};
 }
 
 function sanitizeChecklist(value) {
@@ -148,6 +155,7 @@ function sanitizeChecklist(value) {
     remarks: optionalNote(source.remarks, '備考'),
     remarksUpdatedAt: source.remarksUpdatedAt == null ? null : requireIso(source.remarksUpdatedAt, '備考更新日時'),
     sourceTemplateId: source.sourceTemplateId,
+    ...(source.receivedFrom===undefined?{}:{receivedFrom:sanitizeReceivedFrom(source.receivedFrom)}),
     orderLocked: optionalBoolean(source.orderLocked, '並び順ロック'),
     items,
     dueAt: source.dueAt,
@@ -213,7 +221,8 @@ function normalizeEditableChecklistItems(items, previousItems, timestamp) {
     if (typeof checked !== 'boolean') fail('チェック状態が不正です');
     // Edits retain the original check time, including unknown times from old records.
     const checkedAt = checked ? (existing?.checked ? existing.checkedAt : timestamp) : null;
-    return { id, label: requireText(item.label, '項目名'), note: optionalNote(item.note), checked, checkedAt };
+    return { id, label: requireText(item.label, '項目名'), note: optionalNote(item.note), checked, checkedAt,
+      ...(existing?.sourceTaskId===undefined?{}:{sourceTaskId:existing.sourceTaskId}) };
   });
   uniqueIds(normalized, 'チェックリスト項目');
   return normalized;

@@ -25,7 +25,7 @@ export function importBackup(destination, value) {
   const imported=validateState({...value,revision:0});
   const ids=new Map(imported.templates.map(t=>[t.id,crypto.randomUUID()]));
   const templates=imported.templates.map(t=>({...t,id:ids.get(t.id),items:t.items.map(i=>({...i,id:crypto.randomUUID()}))}));
-  const checklists=imported.checklists.map(c=>({...c,id:crypto.randomUUID(),sourceTemplateId:ids.get(c.sourceTemplateId) ?? null,notificationEnabled:false,items:c.items.map(i=>({...i,id:crypto.randomUUID()}))}));
+  const checklists=imported.checklists.map(c=>({...c,id:crypto.randomUUID(),sourceTemplateId:ids.get(c.sourceTemplateId) ?? null,notificationEnabled:false,...(c.receivedFrom?{receivedFrom:{...c.receivedFrom,direct:false}}:{}),items:c.items.map(i=>({...i,id:crypto.randomUUID()}))}));
   return {...destination,templates:[...destination.templates,...templates],checklists:[...destination.checklists,...checklists]};
 }
 export function shareTemplate(template, origin=PUBLIC_ORIGIN) {

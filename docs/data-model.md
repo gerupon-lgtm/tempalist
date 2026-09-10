@@ -199,3 +199,11 @@ schemaVersion 1への互換的な任意項目追加。ChecklistItem.checkedAtが
 toggleItemでON時にチェック日時とリストupdatedAtに同じ操作時刻を記録し、OFF時にcheckedAtをnullに戻す。updateChecklist経由でチェック状態を変更しても同じ規則とする。チェック済みのまま項目を編集する場合は保存済みのcheckedAtを維持し、編集入力からの日時差し替えは受け付けない。新しい項目は現在の操作でチェックした場合だけ日時を持つ。
 
 チェック日時は再描画・再起動・完了確定・再開・並べ替え・備考編集で保持する。バックアップと1件の記録の再取り込みでも保持する。テンプレートへの書き戻し・テンプレートから作成した次のリストには引き継がない。
+
+## v0.4.0 あとキューからのリスト作成
+
+schemaVersion 1に任意項目Checklist.receivedFrom（source: atoqueue、requestId: UUID、direct: boolean）とChecklistItem.sourceTaskId（空白のみではない文字列）を追加する。未定義なら従来どおり省略する。既存項目のチェック・編集・並べ替えでは保持し、手入力による項目の新規追加では元IDを生成しない。
+
+receivedFrom.direct=trueのリストが同じsource/requestIdで残っていれば起動URLから再作成しない。保存直前にもWeb Locks内で照合する。保持期間で削除対象になった完了リストは再利用しない。バックアップ・証跡JSONのコピー取り込みはdirect=falseへ変更し、別リスト追加と重複防止が干渉しないようにする。元の予定IDと連携IDは記録内に残る。テンプレートへの書き戻し・テンプレート複製にこれらの項目を含めない。
+
+起動URL・入力項目・初期状態はatoqueue-checklist-link.mdを参照。タイトルと項目を連携URLから受け取っても、通知APIへ送るデータは変わらない。

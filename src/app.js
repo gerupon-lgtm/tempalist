@@ -3,6 +3,7 @@ import {parseDeadline,formatDateTime} from './dates.js';
 import {deadlineForm,bindPickers} from './date-time-fields.js';
 import {createStore,storageUsage,WARNING_BYTES,StorageFailure} from './storage.js';
 import {exportBackup,importBackup,shareTemplate,readSharedTemplate,parseTransfer} from './transfer.js';
+import {readChecklistLink,findLinkedChecklist,createLinkedChecklist} from './checklist-link.js';
 import {APP_VERSION,COPYRIGHT} from './version.js';
 import {createChecklistRecord} from './checklist-record.js';
 import {createPwaController,installHelp} from './pwa.js';
@@ -322,10 +323,41 @@ main.addEventListener('click',event=>{
     }
   });
 });
+let lastRegularHash='#/lists';
+function finishChecklistLink(path){
+  history.replaceState(null,'',location.pathname+location.search+'#/'+path);route();
+}
+function receiveChecklistLink(){
+  // Never replace a form or an unsaved remark when a new fragment arrives in this window.
+  if(hasUnsavedInput()||document.querySelector('dialog[open]')){
+    history.replaceState(null,'',location.pathname+location.search+lastRegularHash);
+    toast('入力を保存するか画面を閉じてから、連携リンクをもう一度開いてください。');return;
+  }
+  let value,existing;
+  try{value=readChecklistLink(location.href);existing=findLinkedChecklist(store.read(),value);}
+  catch(error){finishChecklistLink('lists');toast(error.message);return;}
+  if(existing){finishChecklistLink('checklist/'+existing.id);toast('この連携のリストは作成済みです。');return;}
+  render();
+  const ios=/iPad|iPhone|iPod/.test(navigator.userAgent)||(/Macintosh/.test(navigator.userAgent)&&navigator.maxTouchPoints>1);
+  const dialog=openDialog('あとキューからリストを作る',
+    field('リスト名',input('title',value.title,true))+`<p>${value.items.length}項目を、すべて未チェックで作成します。</p><ol class="preview-items checklist-link-preview">${value.items.map(item=>`<li>${e(item.label)}${item.note?`<br><small>${e(item.note)}</small>`:''}</li>`).join('')}</ol><p class="secondary-text">あとキューの予定は変更しません。期限は未設定、通知はOFFで作成します。</p>${ios?'<p class="notice">iPhone・iPadの連携は動作確認中です。作成後、ホーム画面のテンパリストから同じリストを開けるか確認してください。</p>':''}`,
+    {submit:'作成する',lockWhileSaving:true,onCancel:()=>finishChecklistLink('lists'),onSubmit:async form=>{
+      let result;
+      const element=dialog.querySelector('form');element.dataset.pendingLinkHash=location.hash;
+      try{await commit(s=>{result=createLinkedChecklist(s,value,form.get('title'));return result.state;});}
+      finally{delete element.dataset.pendingLinkHash;}
+      finishChecklistLink('checklist/'+result.checklistId);
+      toast(result.created?'あとキューからリストを作成しました。':'この連携のリストは作成済みです。');
+    }});
+}
 function route(){
+  const pending=document.querySelector('#dialog form[data-pending-link-hash]');
+  if(pending){history.replaceState(null,'',location.pathname+location.search+pending.dataset.pendingLinkHash);toast('保存中です。完了してから操作してください。');return;}
+  if(location.hash.startsWith('#create=')){receiveChecklistLink();return;}
   if(location.hash.startsWith('#t=')){
     render();try{importPreview(readSharedTemplate(location.href));}catch(error){toast(error.message);}return;
   }
+  lastRegularHash=location.hash.startsWith('#/')?location.hash:'#/lists';
   render();main.classList.toggle('settled-flash',celebrate);celebrate=false;main.focus({preventScroll:true});window.scrollTo(0,0);
 }
 window.addEventListener('hashchange',route);

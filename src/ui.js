@@ -21,13 +21,15 @@ export function toast(message) {
   node.textContent = message; node.classList.add('visible');
   clearTimeout(toast.timer); toast.timer = setTimeout(() => node.classList.remove('visible'), 4000);
 }
-export function openDialog(title, body, {submit='保存する', onSubmit, onCancel, cancel='キャンセル', destructive=false} = {}) {
+export function openDialog(title, body, {submit='保存する', onSubmit, onCancel, cancel='キャンセル', destructive=false, lockWhileSaving=false} = {}) {
   const dialog = document.querySelector('#dialog');
   if (dialog.open) dialog.close();
   dialog.innerHTML = `<form id="dialog-form"><h2 id="dialog-title">${escapeHTML(title)}</h2>${body}<p class="form-error" role="alert"></p><div class="dialog-actions"><button type="button" data-dialog-cancel>${escapeHTML(cancel)}</button>${onSubmit ? `<button type="submit" class="${destructive ? 'danger' : 'primary'}">${escapeHTML(submit)}</button>` : ''}</div></form>`;
   const form=dialog.querySelector('form');
+  let saving=false;
   dialog.dataset.initialForm=JSON.stringify([...new FormData(form)]);
   const close = () => {
+    if(lockWhileSaving&&saving)return;
     if(onSubmit && JSON.stringify([...new FormData(form)])!==dialog.dataset.initialForm){
       if(dialog.querySelector('[data-discard]'))return;
       const confirmation=document.createElement('div');confirmation.className='notice';
@@ -43,13 +45,21 @@ export function openDialog(title, body, {submit='保存する', onSubmit, onCanc
   dialog.oncancel = event => { event.preventDefault(); close(); };
   dialog.querySelector('form').onsubmit = async event => {
     event.preventDefault();
-    const button = dialog.querySelector('[type=submit]');
+    if(saving)return;
+    const data=new FormData(form),button = form.querySelector('[type=submit]');
+    const controls=lockWhileSaving?[...form.elements].map(node=>[node,node.disabled]):[];
+    saving=true;
     button.disabled = true;
+    for(const [node] of controls)node.disabled=true;
     try {
-      const result = await onSubmit(new FormData(event.currentTarget));
-      if (result !== false && dialog.open) dialog.close();
-    } catch (error) { dialog.querySelector('.form-error').textContent = error.message; }
-    finally { if (button.isConnected) button.disabled = false; }
+      const result = await onSubmit(data);
+      if (result !== false && dialog.open && dialog.contains(form)) dialog.close();
+    } catch (error) { form.querySelector('.form-error').textContent = error.message; }
+    finally {
+      saving=false;
+      for(const [node,disabled] of controls)if(node.isConnected)node.disabled=disabled;
+      if (button.isConnected) button.disabled = false;
+    }
   };
   dialog.showModal();
   return dialog;

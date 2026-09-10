@@ -36,6 +36,8 @@ URL共有は「テンプレート詳細 → 共有 → リンクをコピー」�
 
 UTF-8、`schemaVersion: 1`、`kind: "checklist-record"`。`appVersion`、`exportedAt`（UTC）、`timeZone`（表示に使用したIANA ID）、`checklist` を持つ。
 
+v0.4.0のあとキュー連携で作成したリストは、任意項目receivedFromとitems[].sourceTaskIdもJSONに保持する。再取り込みしたコピーはreceivedFrom.direct=falseとなり、起動URLの直接受信済み判定に使わない。通常の手作成・既存リストにはこれらの項目はない。
+
 - `checklist`：ID、名称、全体備考 `remarks`、備考更新日時 `remarksUpdatedAt`、期限、チェック項目（ID・label・note・checked・checkedAt）、並び順ロック、状態、`settledAt`、作成・更新日時、元テンプレートID、通知の有効フラグ・相対オフセット。項目順は配列順。
 - 完了日時・備考更新日時・期限が存在しない場合は `null`。進行中の完了日時を生成しない。日時はUTC ISO 8601で保存し、本文では端末のタイムゾーンの秒単位表示とUTCの値を併記する。
 - 対象のリスト1件だけを含む。他のリスト、テンプレート本体、端末設定、deviceId、deviceSecret、購読情報、通知対応表、Outboxを含まない。
