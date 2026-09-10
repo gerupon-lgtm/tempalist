@@ -1,25 +1,28 @@
 import {chromium} from 'playwright';
 import assert from 'node:assert/strict';
 const browser=await chromium.launch({channel:'chrome',headless:true});
-const context=await browser.newContext({viewport:{width:375,height:812}});
+const ios=process.env.TEST_IOS==='1'||process.argv.includes('--ios');
+const context=await browser.newContext({viewport:{width:375,height:812},...(ios?{userAgent:'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 Version/18.0 Mobile/15E148 Safari/604.1',hasTouch:true}:{})});
 const page=await context.newPage(),requests=[];
 await context.grantPermissions(['notifications']);
 const cdp=await context.newCDPSession(page);let registrationId;
 cdp.on('ServiceWorker.workerRegistrationUpdated',({registrations})=>{registrationId=registrations.find(r=>r.scopeURL==='http://127.0.0.1:4173/'&&!r.isDeleted)?.registrationId??registrationId;});
 await cdp.send('ServiceWorker.enable');
 const deviceId='11111111-1111-4111-8111-111111111111';
-await context.addInitScript(()=>{
+await context.addInitScript(ios=>{
+ if(ios)Object.defineProperty(navigator,'standalone',{value:true});
  let granted=localStorage.getItem('test:permission')==='granted';
  Object.defineProperty(Notification,'permission',{get:()=>granted?'granted':'default'});
  Notification.requestPermission=async()=>{granted=true;localStorage.setItem('test:permission','granted');return 'granted';};
  const value={endpoint:'https://push.example/test',expirationTime:null,keys:{p256dh:'BA'+'A'.repeat(85),auth:'A'.repeat(22)}};
+ if(ios)delete value.expirationTime;
  const sub={toJSON:()=>value,unsubscribe:async()=>true};
  PushManager.prototype.getSubscription=async()=>sub;PushManager.prototype.subscribe=async()=>sub;
-});
+},ios);
 await context.route('https://api.atoqueue.sikumilab.com/v2/**',async route=>{
  const req=route.request(),url=new URL(req.url()),method=req.method(),body=req.postDataJSON();requests.push({path:url.pathname,method,body,key:req.headers()['idempotency-key']});
  if(method==='GET')return route.fulfill({json:{publicKey:'BA'+'A'.repeat(85)}});
- if(method==='POST')return route.fulfill({status:201,json:{appId:'tempalist',protocolVersion:2,deviceId,deviceSecret:'test-secret',createdAt:new Date().toISOString()}});
+ if(method==='POST'){assert.equal(body.subscription.expirationTime,null);assert.deepEqual(Object.keys(body.subscription).sort(),['endpoint','expirationTime','keys']);return route.fulfill({status:201,json:{appId:'tempalist',protocolVersion:2,deviceId,deviceSecret:'test-secret',createdAt:new Date().toISOString()}});}
  if(method==='DELETE')return route.fulfill({status:204});
  if(url.pathname.includes('/subscription'))return route.fulfill({json:{appId:'tempalist',deviceId,status:'active',updatedAt:new Date().toISOString()}});
  assert.deepEqual(Object.keys(body).sort(),['deviceId','notificationKey','routeKey','scheduledAt']);

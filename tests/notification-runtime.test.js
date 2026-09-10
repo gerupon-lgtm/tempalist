@@ -15,6 +15,12 @@ function setup(){
 it('does not register or ask permission during startup',async()=>{
  const s=setup();await s.runtime.sync();expect(s.api.registerDevice).not.toHaveBeenCalled();expect(s.device.requestPermission).not.toHaveBeenCalled();s.runtime.dispose();
 });
+it('keeps setup failures visible in the settings status without claiming registration succeeded',async()=>{
+ const s=setup();s.device.requestPermission.mockRejectedValue(new Error('通知が許可されていません。'));
+ await expect(s.runtime.enable()).rejects.toThrow('通知が許可されていません');
+ expect(s.runtime.status()).toMatchObject({registered:false,message:'通知が許可されていません。'});
+ expect(s.api.registerDevice).not.toHaveBeenCalled();s.runtime.dispose();
+});
 it('persists registration and outbox before sending, with no duplicate on reload',async()=>{
  const s=setup();await s.runtime.enable();
  s.api.upsertReminder.mockImplementation(async()=>{expect(readNotifications(s.storage).outbox).toHaveLength(1);});

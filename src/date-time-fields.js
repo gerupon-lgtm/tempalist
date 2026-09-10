@@ -23,6 +23,8 @@ export function deadlineForm(entity={dueAt:null,dueHasTime:false}){
  return `<div class="form-grid deadline-fields">${inputField('date','期限の日付',date.replaceAll('-','/'),'2026/09/10','カレンダーを開く')}${inputField('time','時刻',time,'09:00','時計を開く')}</div><p id="deadline-input-help" class="secondary-text">数字を入力すると /・: を補います。右端のアイコンからも選べます。時刻省略時は09:00です。${e(getTimeZone())}</p>`;
 }
 export function bindPickers(root){
+ const nav=root.ownerDocument.defaultView.navigator;
+ const directTap=/iPhone|iPad|iPod/.test(nav.userAgent)||(/Macintosh/.test(nav.userAgent)&&nav.maxTouchPoints>1);
  for(const picker of root.querySelectorAll('[data-picker]')){
   const kind=picker.dataset.picker,input=root.querySelector(`[name=${kind}]`),button=root.querySelector(`[data-open-picker=${kind}]`);
   function format(event){
@@ -51,9 +53,19 @@ export function bindPickers(root){
    input.value=kind==='date'?picker.value.replaceAll('-','/'):picker.value;
    input.dispatchEvent(new Event('change',{bubbles:true}));
   });
-  button.addEventListener('click',()=>{
+  function seedPicker(){
    const normalized=formatDateTimeEntry(input.value,kind);
    picker.value=kind==='date'?normalized.replaceAll('/','-'):normalized;
+  }
+  if(directTap){
+   // iOS date/time pickers open through native input focus, not showPicker().
+   picker.parentElement.classList.add('picker-direct');picker.tabIndex=0;
+   button.tabIndex=-1;button.setAttribute('aria-hidden','true');
+   picker.addEventListener('pointerdown',seedPicker);picker.addEventListener('focus',seedPicker);
+  }
+  button.addEventListener('click',()=>{
+   seedPicker();
+   if(directTap){picker.focus();return;}
    try{
     if(typeof picker.showPicker!=='function')throw new Error('unsupported');
     picker.showPicker();

@@ -70,8 +70,9 @@ export function createNotificationRuntime({storage,api,device,readLists,now=Date
  }
  async function enable(){
   // Invoke permission synchronously from the user's click, before awaiting locks or requests.
-  await device.requestPermission();
-  try{return await lock(async()=>{
+  try{
+   await device.requestPermission();
+   return await lock(async()=>{
    let s=read();if(s.disable)throw new Error('通知の停止処理が保留中です。同期完了後に再設定してください。');
    save(s); // Verify storage is writable before creating a server-side device.
    const {publicKey}=await api.getPublicKey();const subscription=await device.subscribe(publicKey);
@@ -86,7 +87,8 @@ export function createNotificationRuntime({storage,api,device,readLists,now=Date
     catch(error){try{await api.disableDevice(registered,crypto.randomUUID());await device.unsubscribe();}catch{/* Do not retry non-idempotent registration. */}throw error;}
    }
    tell('この端末で通知を使えます。各リストの通知をONにしてください。');return true;
-  });}finally{try{schedule();}catch{/* Caller reports persistence failure. */}}
+  });}catch(error){tell(error.message||'通知の登録に失敗しました。もう一度お試しください。');throw error;}
+  finally{try{schedule();}catch{/* Caller reports persistence failure. */}}
  }
  async function disable(){
   await lock(async()=>{const s=read();if(s.device){s.disable??=lifecycleOperation();save(s);}else await device.unsubscribe();});

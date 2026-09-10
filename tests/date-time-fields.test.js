@@ -57,3 +57,20 @@ it('provides a visible native fallback when showPicker is unavailable',()=>{
  expect(picker.closest('.input-with-picker').classList.contains('picker-fallback')).toBe(true);
  expect(picker.tabIndex).toBe(0);expect(document.activeElement).toBe(picker);
 });
+it.each(['iPhone','Macintosh'])('provides a direct native tap target on iOS (%s) even if showPicker silently does nothing',userAgent=>{
+ const ua=Object.getOwnPropertyDescriptor(navigator,'userAgent'),touch=Object.getOwnPropertyDescriptor(navigator,'maxTouchPoints');
+ try{
+  Object.defineProperty(navigator,'userAgent',{configurable:true,value:userAgent});Object.defineProperty(navigator,'maxTouchPoints',{configurable:true,value:5});
+  document.body.innerHTML=deadlineForm();bindPickers(document.body);
+  for(const kind of ['date','time']){
+   const picker=document.querySelector(`[data-picker=${kind}]`),input=document.querySelector(`[name=${kind}]`),button=document.querySelector(`[data-open-picker=${kind}]`);
+   picker.showPicker=vi.fn();input.value=kind==='date'?'20260910':'1430';
+   expect(picker.parentElement.classList.contains('picker-direct')).toBe(true);expect(picker.tabIndex).toBe(0);
+   picker.dispatchEvent(new Event('pointerdown'));expect(picker.value).toBe(kind==='date'?'2026-09-10':'14:30');
+   button.click();expect(document.activeElement).toBe(picker);expect(picker.showPicker).not.toHaveBeenCalled();
+  }
+ }finally{
+  if(ua)Object.defineProperty(navigator,'userAgent',ua);else delete navigator.userAgent;
+  if(touch)Object.defineProperty(navigator,'maxTouchPoints',touch);else delete navigator.maxTouchPoints;
+ }
+});

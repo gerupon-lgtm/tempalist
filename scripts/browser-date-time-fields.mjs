@@ -1,7 +1,9 @@
 import {chromium} from 'playwright';
 import assert from 'node:assert/strict';
 const browser=await chromium.launch({channel:'chrome',headless:true});
-const context=await browser.newContext({viewport:{width:375,height:812},hasTouch:true,timezoneId:'Asia/Tokyo'});
+const ios=process.argv.includes('--ios');
+const context=await browser.newContext({viewport:{width:375,height:812},hasTouch:true,timezoneId:'Asia/Tokyo',...(ios?{userAgent:'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 Version/18.0 Mobile/15E148 Safari/604.1'}:{})});
+if(ios)await context.addInitScript(()=>{window.showPickerCalls=0;HTMLInputElement.prototype.showPicker=function(){window.showPickerCalls++;};});
 const page=await context.newPage(),errors=[];
 page.on('pageerror',error=>errors.push(error.message));
 const button=name=>page.getByRole('button',{name,exact:true});
@@ -34,7 +36,14 @@ try{
  await page.setViewportSize({width:375,height:812});
  await page.screenshot({path:'artifacts/date-time-fields-mobile.png'});
  for(const [kind,value] of [['date','2026-09-10'],['time','14:30']]){
-  await page.locator(`[data-open-picker=${kind}]`).click();
+  if(ios){
+   const target=page.locator(`[data-open-picker=${kind}]`);await target.scrollIntoViewIfNeeded();const box=await target.boundingBox();
+   const point={x:box.x+box.width/2,y:box.y+box.height/2};
+   assert.equal(await page.evaluate(({x,y})=>document.elementFromPoint(x,y)?.dataset.picker,point),kind);
+   await page.touchscreen.tap(point.x,point.y);
+   assert.equal(await page.locator(`[data-picker=${kind}]`).evaluate(el=>el===document.activeElement),true);
+   assert.equal(await page.evaluate(()=>window.showPickerCalls),0);
+  }else await page.locator(`[data-open-picker=${kind}]`).click();
   assert.equal(await page.locator(`[data-picker=${kind}]`).inputValue(),value);
   assert.equal(await page.locator('.picker-fallback').count(),0);
   await page.keyboard.press('Escape');
@@ -50,5 +59,5 @@ try{
  await button('保存する').click();await page.locator('#dialog').waitFor({state:'hidden'});
  assert.equal(await page.evaluate(()=>JSON.parse(localStorage.getItem('tempalist:data')).checklists[0].dueAt),null);
  assert.deepEqual(errors,[]);
- console.log('Browser date/time: tap selection, sequential input, separator deletion, embedded native pickers, mobile layout, UTC save/reopen/clear: OK');
+ console.log(`Browser date/time${ios?' (iOS direct-tap path, simulated UA/no-op showPicker)':''}: tap selection, sequential input, separator deletion, embedded native pickers, mobile layout, UTC save/reopen/clear: OK`);
 }finally{await browser.close();}
