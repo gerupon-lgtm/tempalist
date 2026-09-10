@@ -134,3 +134,4 @@ main:has(>.tabs)>.page-heading h1{font-size:clamp(1rem,4.6vw,1.25rem);margin-bot
  .item-copy .item-label{font-size:clamp(.875rem,calc(100cqi / var(--item-label-units,1)),1rem);letter-spacing:clamp(-.02em,calc((100cqi / var(--item-label-units,1) - 1rem) / 4),0em)}
 }
 @supports(word-break:auto-phrase){.item-copy .item-label{word-break:auto-phrase}}
+.item-row.checked .item-label{text-decoration-line:line-through;text-decoration-thickness:1px}
