@@ -40,6 +40,8 @@ try{
  await page.getByRole('link',{name:'設定',exact:true}).click();
  await page.getByRole('button',{name:'この端末で通知を使う',exact:true}).click();
  await page.waitForFunction(()=>JSON.parse(localStorage.getItem('tempalist:notification'))?.device);
+ await page.locator('[data-notification-status]').filter({hasText:'この端末は登録済みです。'}).waitFor();
+ assert.equal(await page.getByRole('button',{name:'この端末の通知設定を確認',exact:true}).isVisible(),true);
  await page.getByRole('link',{name:'リスト',exact:true}).click();
  await page.getByRole('button',{name:'通知を設定',exact:true}).click();await page.getByLabel('このリストの通知を受け取る').check();
  await page.getByRole('button',{name:'保存する',exact:true}).click();
@@ -80,6 +82,9 @@ try{
  assert.deepEqual((await state()).maps,first.maps);
  await page.getByRole('link',{name:'設定',exact:true}).click();await page.getByRole('button',{name:'通知の同期を再試行'}).click();
  await page.waitForFunction(()=>document.querySelector('[data-action=retry-notifications]')?.disabled===false);
+ assert.match(await page.locator('[data-notification-status]').textContent(),/この端末は登録済みです/);
+ assert.deepEqual((await state()).device,first.device);
+ assert.equal(requests.filter(r=>r.method==='POST').length,1);
  assert.equal(requests.filter(r=>r.method==='PUT').length,2);
  await context.setOffline(true);await page.reload();await page.getByRole('heading',{name:'設定とデータ'}).waitFor();await context.setOffline(false);
  await page.goto('http://127.0.0.1:4173/'+checklist);await page.getByRole('button',{name:'通知を設定',exact:true}).waitFor();

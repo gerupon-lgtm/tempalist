@@ -20,7 +20,8 @@ let notificationRuntime=null,notificationBusy=false,serviceWorkerRegistration=nu
 function updateNotificationStatus(){
   if(!notificationRuntime)return;
   const info=notificationRuntime.status();
-  document.querySelectorAll('[data-notification-status]').forEach(node=>{node.textContent=info.message+(info.pending?`（未同期 ${info.pending}件）`:'');});
+  document.querySelectorAll('[data-notification-status]').forEach(node=>{node.textContent=(info.registered?(info.stopping?'通知の停止処理中です。':'この端末は登録済みです。'):'')+info.message+(info.pending?`（未同期 ${info.pending}件）`:'');});
+  const enable=document.querySelector('[data-action=enable-notifications]');if(enable)enable.textContent=info.registered?'この端末の通知設定を確認':'この端末で通知を使う';
   const stop=document.querySelector('[data-action=stop-notifications]');if(stop)stop.disabled=!info.registered;
   const support=document.querySelector('[data-notification-support]');if(support)support.textContent=notificationSupport();
 }

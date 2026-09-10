@@ -4,6 +4,8 @@ import {execFileSync} from 'node:child_process';
 import {chromium} from 'playwright';
 import assert from 'node:assert/strict';
 import {APP_VERSION} from '../src/version.js';
+import {emptyNotifications} from '../src/notification/queue.js';
+const notificationRaw=JSON.stringify({...emptyNotifications(),device:{deviceId:'11111111-1111-4111-8111-111111111111',deviceSecret:'test-only',appId:'tempalist',protocolVersion:2,createdAt:'2026-09-10T00:00:00.000Z'},subscription:{endpoint:'https://push.example/test',expirationTime:null,keys:{p256dh:'test-key',auth:'test-key'}}});
 let phase='old';const old=new Map(),errors=[];
 const nextVersion=APP_VERSION+'-test';
 const server=http.createServer(async(req,res)=>{try{
@@ -30,6 +32,7 @@ async function oldPage(){
  await page.getByRole('button',{name:'リストを作る',exact:true}).first().click();await page.getByLabel('タイトル',{exact:true}).fill('更新しても残す記録');
  await page.getByRole('button',{name:'作成する',exact:true}).click();await page.locator('#dialog').waitFor({state:'hidden'});
  const raw=await page.evaluate(()=>localStorage.getItem('tempalist:data'));
+ await page.evaluate(value=>localStorage.setItem('tempalist:notification',value),notificationRaw);
  return {context,page,raw};
 }
 try{
@@ -41,6 +44,8 @@ try{
  await page.getByRole('link',{name:'設定',exact:true}).click();await page.getByRole('button',{name:'新しいバージョンに更新',exact:true}).click();
  await page.waitForFunction(version=>document.querySelector('#version')?.textContent==='v'+version,APP_VERSION);
  assert.equal(await page.evaluate(()=>localStorage.getItem('tempalist:data')),raw);
+ assert.equal(await page.evaluate(()=>localStorage.getItem('tempalist:notification')),notificationRaw);
+ assert.match(await page.locator('[data-notification-status]').textContent(),/この端末は登録済みです/);
  assert.equal(await page.getByRole('button',{name:'更新を確認する',exact:true}).isVisible(),true);
  assert.match(await page.locator('[data-install-help]').textContent(),/ホーム画面に追加/);
  // A browser-supplied prompt is offered but never invoked without a click.
@@ -65,6 +70,7 @@ try{
  await page.waitForFunction(()=>JSON.parse(localStorage.getItem('tempalist:data')).checklists[0].remarks==='更新前に保存する備考');
  await page.locator('#pwa-update [data-pwa-action=update]').click();
  await page.waitForFunction(version=>document.querySelector('#version')?.textContent==='v'+version,nextVersion);
+ assert.equal(await page.evaluate(()=>localStorage.getItem('tempalist:notification')),notificationRaw);
  assert.equal(await page.getByRole('textbox',{name:'リスト全体の備考'}).inputValue(),'更新前に保存する備考');
  await context.setOffline(true);await page.reload();assert.equal(await page.getByRole('textbox',{name:'リスト全体の備考'}).inputValue(),'更新前に保存する備考');
  await context.close();
@@ -75,6 +81,7 @@ try{
  await page.getByRole('link',{name:'アプリへ戻る',exact:true}).click();
  await page.waitForFunction(version=>document.querySelector('#version')?.textContent==='v'+version,APP_VERSION);
  assert.equal(await page.evaluate(()=>localStorage.getItem('tempalist:data')),raw);
+ assert.equal(await page.evaluate(()=>localStorage.getItem('tempalist:notification')),notificationRaw);
  assert.deepEqual(errors,[]);await context.close();
  console.log('PWA: real v0.2.1 upgrade with stale HTTP cache, saved-data retention, install promotion, visible update banner, unsaved-input guard, offline reload and dedicated recovery route: OK');
 }finally{await browser.close();server.close();}

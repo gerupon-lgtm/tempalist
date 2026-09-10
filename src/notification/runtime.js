@@ -1,5 +1,9 @@
 import {emptyNotifications,readNotifications,saveNotifications,reconcile,acknowledge,failOperation} from './queue.js';
 const lifecycleOperation=()=>({id:crypto.randomUUID(),attemptCount:0,nextAttemptAt:'1970-01-01T00:00:00.000Z',blocked:false});
+// JSON property order is not part of a Push subscription's identity.
+const sameSubscription=(a,b)=>Boolean(a?.endpoint&&a.keys?.p256dh&&a.keys?.auth&&b&&
+ a.endpoint===b.endpoint&&(a.expirationTime??null)===(b.expirationTime??null)&&
+ a.keys.p256dh===b.keys?.p256dh&&a.keys.auth===b.keys?.auth);
 export function createNotificationRuntime({storage,api,device,readLists,now=Date.now,locks=globalThis.navigator?.locks,onChange=()=>{}}){
  let tail=Promise.resolve(),timer=null,disposed=false,message='',awaitingSetup=false;
  const read=()=>readNotifications(storage);
@@ -44,10 +48,11 @@ export function createNotificationRuntime({storage,api,device,readLists,now=Date
    catch(error){if(read().device)failed(s,op,error,'disable');else tell('通知は停止しました。ブラウザの購読解除を再確認してください。');}return;
   }
   if(s.subscriptionChange){const op=s.subscriptionChange;if(op.blocked||Date.parse(op.nextAttemptAt)>now())return;try{await updateSubscription(s);}catch{return;}}
-  s=read();let subscription=null;try{subscription=await device.currentSubscription();}catch{/* Cancellation does not depend on browser subscription availability. */}
-  const usable=device.permission()==='granted'&&subscription&&JSON.stringify(subscription)===JSON.stringify(s.subscription);
+  s=read();let subscription=null,inspectionFailed=false;
+  try{subscription=await device.currentSubscription();}catch{inspectionFailed=true;/* Cancellation can still proceed. */}
+  const usable=device.permission()==='granted'&&sameSubscription(subscription,s.subscription);
   awaitingSetup=!usable;
-  if(!usable)tell('通知の許可または購読を確認し、「この端末で通知を使う」から再設定してください。');
+  if(!usable)tell(inspectionFailed?'ブラウザの通知状態を確認できませんでした。登録情報は保持しています。「通知の同期を再試行」で確認してください。':'通知の許可または購読を確認し、「この端末の通知設定を確認」から再設定してください。');
   let sent=0;
   while(sent++<50){
    s=read();if(!s.device)return;
@@ -77,8 +82,8 @@ export function createNotificationRuntime({storage,api,device,readLists,now=Date
    save(s); // Verify storage is writable before creating a server-side device.
    const {publicKey}=await api.getPublicKey();const subscription=await device.subscribe(publicKey);
    if(s.device){
-    if(s.subscriptionChange||JSON.stringify(s.subscription)!==JSON.stringify(subscription)){
-     if(!s.subscriptionChange||JSON.stringify(s.subscriptionChange.subscription)!==JSON.stringify(subscription))s.subscriptionChange={...lifecycleOperation(),subscription};
+    if(s.subscriptionChange||!sameSubscription(s.subscription,subscription)){
+     if(!s.subscriptionChange||!sameSubscription(s.subscriptionChange.subscription,subscription))s.subscriptionChange={...lifecycleOperation(),subscription};
      save(s);await updateSubscription(s);
     }
    }else{

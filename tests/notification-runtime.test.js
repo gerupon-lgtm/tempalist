@@ -65,3 +65,33 @@ it('still cancels reservations when browser subscription inspection fails',async
  const s=setup();await s.runtime.enable();await s.runtime.sync();s.setLists([]);s.device.currentSubscription.mockRejectedValue(new Error('browser unavailable'));
  await s.runtime.sync();expect(s.api.cancelReminder).toHaveBeenCalledTimes(1);expect(readNotifications(s.storage).maps).toEqual([]);s.runtime.dispose();
 });
+it('reuses saved registration after a new runtime starts even if JSON field order changed',async()=>{
+ const s=setup();await s.runtime.enable();s.runtime.dispose();
+ s.device.currentSubscription.mockResolvedValue({keys:{auth:'key',p256dh:'key'},expirationTime:null,endpoint:subscription.endpoint});
+ const runtime=createNotificationRuntime({storage:s.storage,api:s.api,device:s.device,readLists:()=>s.lists,now:()=>now,locks:null});
+ try{
+  await runtime.sync();expect(runtime.status().registered).toBe(true);
+  expect(s.api.upsertReminder).toHaveBeenCalledTimes(1);
+  expect(s.api.registerDevice).toHaveBeenCalledTimes(1);expect(s.device.requestPermission).toHaveBeenCalledTimes(1);
+  expect(readNotifications(s.storage).device).toEqual(registered);
+ }finally{runtime.dispose();}
+});
+it('does not update an unchanged subscription just because its JSON field order changed',async()=>{
+ const s=setup();await s.runtime.enable();
+ s.device.subscribe.mockResolvedValue({keys:{auth:'key',p256dh:'key'},endpoint:subscription.endpoint,expirationTime:null});
+ try{await s.runtime.enable();expect(s.api.updateSubscription).not.toHaveBeenCalled();expect(s.api.registerDevice).toHaveBeenCalledTimes(1);}finally{s.runtime.dispose();}
+});
+it('reports an inspection failure as unconfirmed and retains registration for a successful retry',async()=>{
+ const s=setup();await s.runtime.enable();s.device.currentSubscription.mockRejectedValueOnce(new Error('temporarily unavailable'));
+ try{
+  await s.runtime.sync();expect(s.runtime.status().registered).toBe(true);
+  expect(s.runtime.status().message).toContain('確認できませんでした');
+  expect(s.runtime.status().message).not.toContain('再設定');
+  expect(readNotifications(s.storage).device).toEqual(registered);expect(s.api.upsertReminder).not.toHaveBeenCalled();
+  await s.runtime.retry();expect(s.api.upsertReminder).toHaveBeenCalledTimes(1);expect(s.api.registerDevice).toHaveBeenCalledTimes(1);
+ }finally{s.runtime.dispose();}
+});
+it('still requires setup if the endpoint or encryption key actually changed',async()=>{
+ const s=setup();await s.runtime.enable();s.device.currentSubscription.mockResolvedValue({...subscription,keys:{...subscription.keys,auth:'different'}});
+ try{await s.runtime.sync();expect(s.api.upsertReminder).not.toHaveBeenCalled();expect(s.runtime.status().message).toContain('再設定');expect(s.runtime.status().registered).toBe(true);}finally{s.runtime.dispose();}
+});
