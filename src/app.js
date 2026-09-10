@@ -185,11 +185,13 @@ function share(){
 async function exportChecklist(id){
   await saveRemarks(id);
   const data=createChecklistRecord(entityIn(store.read(),'checklist',id));
-  const file=new File([data.json],data.jsonName,{type:'application/json'});
+  // Chromium's native share rejects application/json even when canShare returns true.
+  // Share the JSON as a plain-text document; the regular .json download stays available.
+  const file=new File([data.json],data.jsonName+'.txt',{type:'text/plain'});
   let canShare=false;try{canShare=Boolean(navigator.share&&navigator.canShare?.({files:[file]}));}catch{/* File sharing is optional. */}
   const mailto='mailto:?subject='+encodeURIComponent(data.subject)+'&body='+encodeURIComponent(data.text.replace(/\r?\n/g,'\r\n'));
   const shortMail=mailto.length<=1800;
-  const dialog=openDialog('メール・記録を書き出す',`<p>現在の内容を出力します。宛先の指定と送信はメールアプリで行ってください。</p>${field('件名',`<input id="record-subject" readonly value="${e(data.subject)}">`)}${field('本文',`<textarea id="record-body" class="record-body" readonly>${e(data.text)}</textarea>`)}<div class="actions">${canShare?'<button type="button" class="primary" id="record-share">メールアプリへ共有（JSON付き）</button>':''}<button type="button" id="record-json">JSONを保存</button><button type="button" id="record-copy-subject">件名をコピー</button><button type="button" id="record-copy">本文をコピー</button></div><p class="secondary-text">共有先によって件名・本文・添付の扱いが異なります。送信前に内容とJSON添付を確認してください。</p><details class="record-alternatives"><summary>共有できない場合・PCで送る場合</summary><p>JSONを保存し、メールに添付してください。${shortMail?'':'長い本文は「本文をコピー」で貼り付けてください。'}</p><a class="button" href="${e(shortMail?mailto:'mailto:?subject='+encodeURIComponent(data.subject))}">メールを開く（添付は手動）</a><p>対応するメールソフトでは、本文とJSONが入ったメールファイルも使えます。開いた後の編集方法はソフトによって異なります。</p><button type="button" id="record-eml">JSON添付済みメール（.eml）を保存</button></details><p class="secondary-text">完了日時は端末の時計に基づきます。署名付きの証明ではありません。</p>`,{cancel:'閉じる'});
+  const dialog=openDialog('メール・記録を書き出す',`<p>現在の内容を出力します。宛先の指定と送信はメールアプリで行ってください。</p>${field('件名',`<input id="record-subject" readonly value="${e(data.subject)}">`)}${field('本文',`<textarea id="record-body" class="record-body" readonly>${e(data.text)}</textarea>`)}<div class="actions">${canShare?'<button type="button" class="primary" id="record-share">メールアプリへ共有（データ付き）</button>':''}${!canShare&&navigator.share?'<button type="button" class="primary" id="record-share-text">本文を共有（添付なし）</button>':''}<button type="button" id="record-json">JSONを保存</button><button type="button" id="record-copy-subject">件名をコピー</button><button type="button" id="record-copy">本文をコピー</button></div><p class="secondary-text">${canShare?'共有用の添付は .json.txt です。中身はJSONで、このアプリにはそのまま取り込めます。PCで拡張子 .json が必要な場合は末尾の .txt を外してください。':'このブラウザでは添付付き共有を利用できません。JSONを保存してメールに添付してください。'}共有先によって件名・本文・添付の扱いが異なるため、送信前に確認してください。</p><details class="record-alternatives"><summary>共有できない場合・PCで送る場合</summary><p>JSONを保存し、メールに添付してください。${shortMail?'':'長い本文は「本文をコピー」で貼り付けてください。'}</p><a class="button" href="${e(shortMail?mailto:'mailto:?subject='+encodeURIComponent(data.subject))}">メールを開く（添付は手動）</a><p>対応するメールソフトでは、本文とJSONが入ったメールファイルも使えます。開いた後の編集方法はソフトによって異なります。</p><button type="button" id="record-eml">JSON添付済みメール（.eml）を保存</button></details><p class="secondary-text">完了日時は端末の時計に基づきます。署名付きの証明ではありません。</p>`,{cancel:'閉じる'});
   dialog.querySelector('#record-json').onclick=()=>download(data.jsonName,data.json);
   dialog.querySelector('#record-eml').onclick=()=>download(data.emlName,data.eml,'message/rfc822');
   for(const [button,input,value] of [['#record-copy','#record-body',data.text],['#record-copy-subject','#record-subject',data.subject]]){
@@ -198,9 +200,17 @@ async function exportChecklist(id){
   const shareButton=dialog.querySelector('#record-share');
   if(shareButton)shareButton.onclick=async()=>{
     shareButton.disabled=true;
+    dialog.querySelector('.form-error').textContent='';
     try{await navigator.share({title:data.subject,text:data.text,files:[file]});toast('共有先で内容・添付・送信結果を確認してください');}
     catch(error){if(error.name!=='AbortError'){dialog.querySelector('.form-error').textContent='共有できませんでした。JSONを保存してメールに添付してください。';dialog.querySelector('details').open=true;}}
     finally{shareButton.disabled=false;}
+  };
+  const textShareButton=dialog.querySelector('#record-share-text');
+  if(textShareButton)textShareButton.onclick=async()=>{
+    textShareButton.disabled=true;dialog.querySelector('.form-error').textContent='';
+    try{await navigator.share({title:data.subject,text:data.text});toast('共有先で内容・送信結果を確認してください。添付は含まれていません');}
+    catch(error){if(error.name!=='AbortError'){dialog.querySelector('.form-error').textContent='共有できませんでした。件名と本文をコピーしてメールに貼り付けてください。';dialog.querySelector('details').open=true;}}
+    finally{textShareButton.disabled=false;}
   };
 }
 function importPreview(value){
