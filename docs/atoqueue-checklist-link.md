@@ -2,6 +2,8 @@
 
 作成日: 2026-09-11。受信側実装版: テンパリストv0.4.0。あとキュー側の送信機能を接続するための仕様。Androidを優先し、iOSは起動先・保存領域の実機検証で対応を判断する。iOSで動かない、または操作が煩雑になる場合は、この連携をAndroid限定にする。テンパリスト単体のiOS対応は維持する。
 
+2026-09-12の実機結果を12章に追記。Androidは利用者の連携成功報告あり。iOSホーム画面アプリ経由では普段のテンパリストと保存先が一致せず、対応確認済みとは扱わない。ブラウザ経由ではブラウザ側への保存が確認された。パラメータ仕様の変更はない。
+
 ## 1. 合意した範囲
 
 - あとキューで選んだ複数の予定を、1つのチェックリストにまとめる。買い物など、別々に登録した予定をまとめてチェックする用途。
@@ -164,3 +166,21 @@ link.textContent = 'テンパリストでチェックリストを作る';
 [2項目の買い物リストを確認する](https://tempalist.sikumilab.com/#create=eyJzY2hlbWFWZXJzaW9uIjoxLCJraW5kIjoiY2hlY2tsaXN0LWNyZWF0ZSIsInNvdXJjZSI6ImF0b3F1ZXVlIiwicmVxdWVzdElkIjoiMTExMTExMTEtMTExMS00MTExLTgxMTEtMTExMTExMTExMTExIiwidGl0bGUiOiLpgKPmkLrjg4bjgrnjg4jjg7vosrfjgYTniakiLCJpdGVtcyI6W3sic291cmNlVGFza0lkIjoidGVzdC1taWxrIiwibGFiZWwiOiLniZvkubPjgpLosrfjgYYiLCJub3RlIjoiMeODquODg-ODiOODq-OCkjLmnKwifSx7InNvdXJjZVRhc2tJZCI6InRlc3QtYmF0dGVyeSIsImxhYmVsIjoi6Zu75rGg44KS6LK344GGIiwibm90ZSI6IuWNmDPjgpI05pysIn1dfQ)
 
 開いた時点では保存しない。「作成する」を押すと試験用リストを作成する。同じリンクの再操作では既存の試験用リストを開く。送信元は試験用であり、実際のあとキューの予定には接続していない。OSの起動先確認には、あとキューの画面からこのURLを開いて試す。
+
+## 12. 実機報告と対応判断（2026-09-12）
+
+利用者の報告に基づく。こちらでiOS実機を操作した検証結果ではない。端末・OS・送信側の正確な版数は未記録。
+
+| 起動元 | 報告された結果 |
+| --- | --- |
+| Androidのあとキュー | 正しく連携できた |
+| iOSホーム画面のあとキュー | そのあとキューから開いたテンパリストに保存され、同じ経路の次回以降も蓄積する。ホーム画面のテンパリスト・ブラウザのテンパリストには現れない |
+| iOSブラウザのあとキュー | ブラウザ側のテンパリストに保存され、ブラウザから開き直しても残る |
+
+送信側のbrowser-tempalist-launcher.tsでは、URL検証後にlocation.assign(url)で現在の閲覧コンテキストを遷移させている。インストール済みのテンパリストを指定する起動処理ではない。開発用TempalistLinkProbeも通常のリンクを使う。これはローカルの送信側ソースで確認した内容であり、利用者が試した配信版との完全一致までは確認していない。
+
+観測結果は、iOSの起動経路ごとに別の保存領域を使用していることを示唆する。どのWebKit内部コンテナが割り当てられたかまでは断定しない。ホーム画面Webアプリとブラウザのデータが共有されないことは[WebKit公式資料](https://webkit.org/blog/14787/webkit-features-in-safari-17-2/#web-apps)にも記載されている。
+
+この結果では「あとキューから作成したリストを普段のホーム画面のテンパリストで使う」というiOSの受入条件を満たしていない。既定方針に沿い、正式対応をAndroidに限定する判断が妥当。iOSブラウザ同士の成功は参考結果として残すが、PWA同士の対応成功には数えない。URLパラメータの調整や同じリンクの再送だけで保存領域を統合できるとは扱わない。
+
+今回の更新は実機結果の記録。v0.4.0のiOS受信を禁止するコード変更や、あとキュー側のボタン非表示は行っていない。連携を制限する場合の表示・起動制御は送信側と受信側でそろえる。既存の各保存領域のリストを削除・初期化する対応は不要。
