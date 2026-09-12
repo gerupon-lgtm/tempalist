@@ -49,7 +49,7 @@ interface Checklist {
   dueAt: string | null;              // ISO 8601 UTC
   dueHasTime: boolean;               // false なら時刻はローカル09:00として補完済み
   notificationEnabled: boolean;
-  offsets: string[];                 // 例 ["-24h", "-1h"]。期限からの相対値
+  offsets: string[];                 // 許可値 ["-24h", "-1h", "0h"]。期限からの相対値
   status: "active" | "settled";
   settledAt: string | null;          // 確定日時。保持期間の起算点
   createdAt: string;
@@ -207,3 +207,7 @@ schemaVersion 1に任意項目Checklist.receivedFrom（source: atoqueue、reques
 receivedFrom.direct=trueのリストが同じsource/requestIdで残っていれば起動URLから再作成しない。保存直前にもWeb Locks内で照合する。保持期間で削除対象になった完了リストは再利用しない。バックアップ・証跡JSONのコピー取り込みはdirect=falseへ変更し、別リスト追加と重複防止が干渉しないようにする。元の予定IDと連携IDは記録内に残る。テンプレートへの書き戻し・テンプレート複製にこれらの項目を含めない。
 
 起動URL・入力項目・初期状態はatoqueue-checklist-link.mdを参照。タイトルと項目を連携URLから受け取っても、通知APIへ送るデータは変わらない。
+
+### v0.4.1 期限ちょうどの通知
+
+Checklist.offsetsとReminderMap.slotKeyに`0h`を追加。新規リスト（あとキュー経由を含む）の既定は3枠、通知ON/OFFの既定は引き続きOFF。旧データのoffsetsは補完せず維持する。0hはdueAtそのものを予約し、現在時刻以前なら新規予約しない。schemaVersionは1のまま、0hを含むバックアップの読み込みにはv0.4.1以降が必要。旧版は未知のオフセットとして拒否する。資格情報・既存reminderIdは変更しない。

@@ -31,9 +31,9 @@ async function notificationTask(node,task){
   try{await task();}finally{notificationBusy=false;node.disabled=false;updateNotificationStatus();}
 }
 function notificationSettings(entity){
-  const slots=[['-24h','24時間前',86400000],['-1h','1時間前',3600000]];
+  const slots=[['-24h','24時間前',86400000],['-1h','1時間前',3600000],['0h','期限ちょうど',0]];
   const unchanged=s=>{const current=entityIn(s,'checklist',entity.id);return current&&['dueAt','dueHasTime','notificationEnabled'].every(key=>current[key]===entity[key])&&JSON.stringify(current.offsets)===JSON.stringify(entity.offsets);};
-  const dialog=openDialog('期限の通知',`<label class="default-lock-field"><input type="checkbox" name="enabled" ${entity.notificationEnabled?'checked':''}>このリストの通知を受け取る</label><p>期限より前に通知します。通知にはタイトルや項目の内容を表示しません。</p>${deadlineForm(entity)}${slots.map(([value,label])=>`<label class="default-lock-field"><input type="checkbox" name="offset" value="${value}" ${entity.offsets.includes(value)?'checked':''}><span>${label}<small class="notification-time" data-notification-time="${value}"></small></span></label>`).join('')}<p data-notification-plan role="status"></p><p>${e(notificationSupport()||'初回はブラウザから通知の許可を求めます。')}</p>`,{submit:'保存する',onSubmit:async f=>{
+  const dialog=openDialog('期限の通知',`<label class="default-lock-field"><input type="checkbox" name="enabled" ${entity.notificationEnabled?'checked':''}>このリストの通知を受け取る</label><p>選んだタイミングで最大3回通知します。通知にはタイトルや項目の内容を表示しません。</p>${deadlineForm(entity)}${slots.map(([value,label])=>`<label class="default-lock-field"><input type="checkbox" name="offset" value="${value}" ${entity.offsets.includes(value)?'checked':''}><span>${label}<small class="notification-time" data-notification-time="${value}"></small></span></label>`).join('')}<p data-notification-plan role="status"></p><p>${e(notificationSupport()||'初回はブラウザから通知の許可を求めます。')}</p>`,{submit:'保存する',onSubmit:async f=>{
     const enabled=f.has('enabled'),changes={offsets:f.getAll('offset'),...parseDeadline(f.get('date'),f.get('time'))};
     if(!unchanged(store.read()))throw new StorageFailure('別の画面で期限または通知設定が更新されました。画面を開き直してください。','conflict');
     // Validate the intended schedule before requesting permission or registering a device.

@@ -58,7 +58,7 @@
 
 - 期限に時刻がない場合は、**ローカル日付の09:00**として解釈してからUTC化する
 - 算出した `scheduledAt` が現在時刻より過去なら、その枠は**登録しない**（既に過ぎた通知を作らない）
-- 既定オフセットは `-24h` と `-1h`
+- 新規リストの既定オフセットは `-24h`・`-1h`・`0h`（期限ちょうど）。既存リストの選択は維持する
 
 ## 4. 通知同期のトリガー
 
@@ -113,7 +113,7 @@
 const APP_ID = "tempalist";
 const notificationMap = {
   deadline_advance:  { title: "!=テンパリスト", body: "期限が近いチェックリストがあります",     tagPrefix: "tempalist-advance"  },
-  deadline_imminent: { title: "!=テンパリスト", body: "まもなく期限のチェックリストがあります", tagPrefix: "tempalist-imminent" },
+  deadline_imminent: { title: "!=テンパリスト", body: "期限を確認するチェックリストがあります", tagPrefix: "tempalist-imminent" },
 };
 const routeMap = { list: "/list" };
 ```
@@ -152,3 +152,7 @@ tag は `${tagPrefix}-${groupId}`。通知dataには `reminderId` と `routeKey`
 - 自動再送は通信断・429・500・503のみ。指数バックオフは最大1時間、Retry-Afterが長ければそちらを優先する。永久エラーは保留を維持し「通知の同期を再試行」の明示操作まで停止する。
 - DEVICE_NOT_FOUND／401では資格情報と対応表を破棄し、再設定を案内する。業務データは変えない。REMINDER_NOT_FOUNDの取消は解消済みとして扱い、upsertは対応を再構築して明示再試行を待つ。
 - SWは固定の/list/パスと検証済みreminderIdのクエリを生成する。既存画面にはmessageでIDを渡してfocus。アプリがローカル対応表で対象を解決し、存在しなければ一覧へ戻る。
+
+### v0.4.1 期限ちょうど
+
+`0h`枠はdueAtをscheduledAtとして予約する。既存のdeadline_imminentキーを1時間前と共用し、固定本文を「期限を確認するチェックリストがあります」にする。API契約・Registryへの追加は不要。枠ごとに異なるreminderIdを持ち、再送時は同じID・同じ操作キーを維持する。期限変更は同じreminderIdで更新、通知OFF・完了・削除・枠除去は取消する。groupIdは同じ種類・同じ予定時刻の集約用であり、別時刻の1時間前と期限ちょうどは区別される。

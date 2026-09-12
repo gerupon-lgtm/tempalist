@@ -3,7 +3,7 @@ const UTC_ISO_PATTERN = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.(\
 const TEMPLATE_STATUSES = new Set(['draft', 'active', 'archived']);
 const CHECKLIST_STATUSES = new Set(['active', 'settled']);
 const RETENTIONS = new Set(['30d', '90d', '365d', 'keep']);
-const OFFSETS = new Set(['-24h', '-1h']);
+const OFFSETS = new Set(['-24h', '-1h', '0h']);
 
 function fail(message) {
   throw new Error(message);
@@ -349,7 +349,7 @@ export function createChecklist(state, input, now) {
     dueAt,
     dueHasTime,
     notificationEnabled: false,
-    offsets: ['-24h', '-1h'],
+    offsets: ['-24h', '-1h', '0h'],
     status: 'active',
     settledAt: null,
     createdAt: timestamp,
@@ -407,7 +407,7 @@ export function setChecklistNotification(state,id,enabled,now){
   const current=findById(next.checklists,id,'チェックリスト');const timestamp=requireNow(now);
   if(typeof enabled!=='boolean')fail('通知設定が不正です');
   if(current.status!=='active')fail('確定済みのチェックリストは編集できません');
-  const durations={'-24h':86400000,'-1h':3600000};
+  const durations={'-24h':86400000,'-1h':3600000,'0h':0};
   if(enabled){
     if(!current.dueAt)fail('通知をONにするには、期限の日付を入力してください');
     if(!current.offsets.length)fail('通知タイミングを1つ以上選んでください');

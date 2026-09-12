@@ -196,7 +196,7 @@ describe('checklist operations', () => {
 
     expect(created).toMatchObject({
       title: '明日の準備', sourceTemplateId: TEMPLATE_ID, dueAt: null, dueHasTime: false,
-      notificationEnabled: false, offsets: ['-24h', '-1h'], status: 'active', settledAt: null,
+      notificationEnabled: false, offsets: ['-24h', '-1h', '0h'], status: 'active', settledAt: null,
       createdAt: LATER, updatedAt: LATER,
     });
     expect(created.items[0]).toMatchObject({ label: '財布', note: '現金も確認', checked: false });

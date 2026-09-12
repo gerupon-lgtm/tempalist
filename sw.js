@@ -1,4 +1,4 @@
-const VERSION='0.4.0';
+const VERSION='0.4.1';
 const CACHE=`tempalist-shell-${VERSION}`;
 const SHELL=['/','/index.html','/manifest.webmanifest','/assets/icon.svg','/assets/icon-192.png','/assets/icon-512.png',
  '/update/','/update/index.html','/src/pwa.js','/src/update-page.js','/src/date-time-fields.js','/src/checklist-link.js',
@@ -7,7 +7,7 @@ const SHELL=['/','/index.html','/manifest.webmanifest','/assets/icon.svg','/asse
 const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const notifications={
  deadline_advance:{body:'期限が近いチェックリストがあります',tagPrefix:'tempalist-advance'},
- deadline_imminent:{body:'まもなく期限のチェックリストがあります',tagPrefix:'tempalist-imminent'},
+ deadline_imminent:{body:'期限を確認するチェックリストがあります',tagPrefix:'tempalist-imminent'},
 };
 function object(value){return value!==null&&typeof value==='object'&&!Array.isArray(value);}
 function validClick(value){return object(value)&&Object.keys(value).length===2&&value.routeKey==='list'&&typeof value.reminderId==='string'&&UUID.test(value.reminderId);}

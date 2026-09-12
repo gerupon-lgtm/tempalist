@@ -51,3 +51,21 @@ it('rejects unknown or malformed notification storage without overwriting it',()
  const storage={getItem:()=>'{"schemaVersion":99}',setItem:()=>{throw new Error('must not write');}};
  expect(()=>queue.readNotifications(storage)).toThrow();
 });
+it('reserves three independent slots and preserves the deadline slot across retry, edit and cancellation',()=>{
+ const three={...list,offsets:['-24h','-1h','0h']};
+ let s=queue.reconcile(snapshot(),[three],now);
+ expect(s.maps).toHaveLength(3);
+ const due=s.maps.find(m=>m.slotKey==='0h'),op=s.outbox.find(o=>o.reminderId===due.reminderId);
+ expect(op.body).toEqual({deviceId:id,scheduledAt:three.dueAt,notificationKey:'deadline_imminent',routeKey:'list'});
+ s=queue.failOperation(s,op,{retryable:true},now);
+ expect(queue.reconcile(s,[three],now+1000).outbox.find(o=>o.reminderId===due.reminderId).id).toBe(op.id);
+ expect(queue.readNotifications({getItem:()=>JSON.stringify(s)})).toEqual(s);
+ for(const item of s.outbox)s=queue.acknowledge(s,item);
+ expect(queue.reconcile(s,[three],Date.parse(three.dueAt)).outbox).toEqual([]);
+ const moved=queue.reconcile(s,[{...three,dueAt:'2026-09-13T00:00:00.000Z'}],now);
+ expect(moved.maps.find(m=>m.slotKey==='0h').reminderId).toBe(due.reminderId);
+ expect(moved.outbox).toHaveLength(3);
+ const cancelled=queue.reconcile(moved,[{...three,status:'settled'}],now);
+ expect(cancelled.outbox).toHaveLength(3);expect(cancelled.outbox.every(o=>o.operation==='cancel')).toBe(true);
+ expect(queue.reconcile(snapshot(),[three],Date.parse(three.dueAt)).outbox).toEqual([]);
+});

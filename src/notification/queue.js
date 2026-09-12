@@ -2,7 +2,7 @@ import {isUuid} from './api.js';
 export const NOTIFICATION_STORAGE_KEY='tempalist:notification';
 export const emptyNotifications=()=>({schemaVersion:1,device:null,maps:[],outbox:[],disable:null,subscription:null});
 export const notificationKey=offset=>Math.abs(offset)<=7200000?'deadline_imminent':'deadline_advance';
-const offsets={'-24h':-86400000,'-1h':-3600000};
+const offsets={'-24h':-86400000,'-1h':-3600000,'0h':0};
 const copy=value=>JSON.parse(JSON.stringify(value));
 const operation=(kind,id,body,now)=>({id:crypto.randomUUID(),operation:kind,reminderId:id,...(body?{body}:{}),attemptCount:0,nextAttemptAt:new Date(now).toISOString(),blocked:false});
 function putOperation(state,kind,id,body,now){
