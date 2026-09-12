@@ -16,6 +16,7 @@ import {createNotificationApi} from './notification/api.js';
 import {isUuid} from './notification/api.js';
 import {createNotificationRuntime} from './notification/runtime.js';
 import {createBrowserDevice,notificationSupport} from './notification/device.js';
+import {inspectNotificationBrowser,testNotificationDisplay} from './notification/browser-diagnostics.js';
 const notificationApi=createNotificationApi();
 let notificationRuntime=null,notificationBusy=false,serviceWorkerRegistration=null;
 function updateNotificationStatus(){
@@ -65,11 +66,18 @@ function notificationSettings(entity){
   dialog.querySelector('form').addEventListener('input',preview);dialog.querySelector('form').addEventListener('change',preview);preview();
 }
 function showNotificationDiagnostics(){
- const report={version:APP_VERSION,...notificationRuntime.diagnosticReport()};
- const text=JSON.stringify(report,null,2);
- const dialog=openDialog('通知の診断情報',`<p>予約の送信結果を確認できます。acceptedはAPI応答の確認で、端末への到着を意味しません。この版への更新後の記録が対象です。</p><p>リストの内容・端末の秘密情報は含みません。</p><label>診断情報<textarea rows="12" readonly data-diagnostic-report>${e(text)}</textarea></label><button type="button" data-copy-diagnostics>診断情報をコピー</button><p data-copy-result role="status"></p>`,{cancel:'閉じる'});
+ let notificationReport;
+ try{notificationReport=notificationRuntime.diagnosticReport();}catch{notificationReport={inspectionError:'notification-state-unavailable'};}
+ const report={version:APP_VERSION,...notificationReport,browser:{inspection:'running'}};
+ let text=JSON.stringify(report,null,2);
+ const dialog=openDialog('通知の診断情報',`<p>予約の送信結果を確認できます。acceptedはAPI応答の確認で、端末への到着を意味しません。送信履歴はv0.4.2以降、Push受信・表示履歴はv0.4.3以降の記録です。表示要求の成功だけでは通知欄に見えたかを判定できません。</p><p>リストの内容・端末の秘密情報は含みません。</p><label>診断情報<textarea rows="12" readonly data-diagnostic-report>${e(text)}</textarea></label><button type="button" data-copy-diagnostics>診断情報をコピー</button><p data-copy-result role="status"></p>`,{cancel:'閉じる'});
  const form=dialog.querySelector('form'),area=form.querySelector('[data-diagnostic-report]'),result=form.querySelector('[data-copy-result]');
  const current=()=>dialog.open&&dialog.contains(form);
+ const copyButton=form.querySelector('[data-copy-diagnostics]');copyButton.disabled=true;result.textContent='端末の購読と通知処理を確認しています。';
+ inspectNotificationBrowser().then(browser=>{
+  if(!current())return;
+  report.browser=browser;text=JSON.stringify(report,null,2);area.value=text;copyButton.disabled=false;result.textContent='確認しました。コピーして調査担当へ渡せます。';
+ }).catch(()=>{if(current()){report.browser={inspection:'failed'};text=JSON.stringify(report,null,2);area.value=text;copyButton.disabled=false;result.textContent='端末の詳細を確認できませんでした。取得済みの情報はコピーできます。';}});
  dialog.querySelector('[data-copy-diagnostics]').onclick=async()=>{
   try{await navigator.clipboard.writeText(text);if(current())result.textContent='コピーしました。調査担当へ貼り付けてください。';}
   catch{if(current()){area.focus();area.select();result.textContent='診断情報を選択しました。端末のコピー操作を使ってください。';}}
@@ -312,6 +320,7 @@ main.addEventListener('click',event=>{
       case 'notification-settings':return notificationSettings(entity);
       case 'enable-notifications':return notificationTask(node,async()=>{await notificationRuntime.enable();await notificationRuntime.sync();});
       case 'notification-diagnostics':return showNotificationDiagnostics();
+      case 'test-notification-display':return notificationTask(node,async()=>{const result=document.querySelector('[data-display-test-result]');if(result)result.textContent='通知の表示を試しています。';try{const message=await testNotificationDisplay();if(result?.isConnected)result.textContent=message;}catch(error){if(result?.isConnected)result.textContent=error.message;throw error;}});
       case 'retry-notifications':return notificationTask(node,()=>notificationRuntime.retry());
       case 'stop-notifications':return confirmAction('この端末の通知を停止','この端末のすべての通知予約を取り消します。通信できない場合は取消が保留され、通知が届くことがあります。',async()=>{
         await commit(s=>({...s,checklists:s.checklists.map(list=>({...list,notificationEnabled:false}))}));await notificationRuntime.disable();

@@ -5,6 +5,7 @@ import {APP_VERSION} from '../src/version.js';
 const origin=process.env.TEST_ORIGIN||'http://127.0.0.1:4173';
 const browser=await chromium.launch({channel:'chrome',headless:true});
 const context=await browser.newContext({viewport:{width:375,height:812}}),page=await context.newPage();
+await context.grantPermissions(['notifications']);
 let fail=true,hold=null,held=null;
 const deviceId='11111111-1111-4111-8111-111111111111';
 await context.addInitScript(()=>{
@@ -24,6 +25,7 @@ await context.route('https://api.atoqueue.sikumilab.com/v2/**',async route=>{
 });
 async function report(){
  await page.getByRole('button',{name:'通知の診断情報',exact:true}).click();
+ await page.waitForFunction(()=>document.querySelector('[data-copy-diagnostics]')?.disabled===false);
  const value=JSON.parse(await page.locator('[data-diagnostic-report]').inputValue());
  await page.getByRole('button',{name:'閉じる',exact:true}).click();return value;
 }
@@ -41,6 +43,7 @@ try{
  const failed=await report();assert.equal(failed.version,APP_VERSION);assert.equal(failed.pending,3);
  assert.equal(failed.events.filter(e=>e.event==='failed').length,3);
  assert.equal(failed.events.filter(e=>e.event==='accepted').length,0);
+ assert.equal(failed.browser.receiverVersion,APP_VERSION);assert.equal(failed.browser.subscriptionMatchesLocal,true);assert.equal(failed.browser.pushHistoryAvailable,true);
  assert.doesNotMatch(JSON.stringify(failed),/PRIVATE|deviceId|deviceSecret|endpoint|p256dh|sourceTaskId/);
  await page.reload();await page.getByRole('button',{name:'通知の診断情報',exact:true}).waitFor();
  assert.equal((await report()).events.filter(e=>e.event==='failed').length,3);
@@ -49,13 +52,16 @@ try{
  const accepted=await report();assert.equal(accepted.pending,0);assert.equal(accepted.events.filter(e=>e.event==='accepted').length,3);
  assert.deepEqual(accepted.reservations.map(r=>r.reminderId),failed.reservations.map(r=>r.reminderId));
  assert.doesNotMatch(JSON.stringify(accepted),/PRIVATE|deviceId|deviceSecret|endpoint|p256dh/);
+ await page.getByRole('button',{name:'通知の表示テスト',exact:true}).click();
+ await page.locator('[data-display-test-result]').filter({hasText:/表示要求/}).waitFor();
+ const shown=await report();assert.equal(shown.browser.pushEvents.at(-1).source,'local-test');assert.ok(['display-accepted','display-failed'].includes(shown.browser.pushEvents.at(-1).event));
  // Clipboard completion must not change a replacement modal.
  await page.getByRole('button',{name:'通知の診断情報',exact:true}).click();
  await page.evaluate(()=>{navigator.clipboard.writeText=()=>new Promise(resolve=>{window.resolveDiagnosticCopy=resolve;});});
  await page.getByRole('button',{name:'診断情報をコピー',exact:true}).click();await page.getByRole('button',{name:'閉じる',exact:true}).click();
  await page.getByRole('button',{name:'通知の診断情報',exact:true}).click();
  await page.evaluate(()=>window.resolveDiagnosticCopy());
- assert.equal(await page.locator('[data-copy-result]').textContent(),'');
+ assert.doesNotMatch(await page.locator('[data-copy-result]').textContent(),/コピーしました/);
  await page.getByRole('button',{name:'閉じる',exact:true}).click();
  // A slow API must not hold the save dialog forever or falsely report completion.
  let release;hold=new Promise(resolve=>{release=resolve;});const started=new Promise(resolve=>{held=resolve;});

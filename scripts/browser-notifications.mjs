@@ -96,6 +96,9 @@ try{
  assert.ok(deadlineNotification,'Browser received the simulated deadline push');
  assert.equal(deadlineNotification.body,'期限を確認するチェックリストがあります');
  assert.equal(deadlineNotification.data.reminderId,deadlineReminderId);
+ const inspection=await page.evaluate(async()=>{const {inspectNotificationBrowser}=await import('/src/notification/browser-diagnostics.js');return inspectNotificationBrowser();});
+ assert.equal(inspection.pushEvents.filter(e=>e.event==='push-received').length,2);assert.ok(inspection.pushEvents.some(e=>e.reminderId===deadlineReminderId&&e.event==='display-accepted'));
+ assert.equal(inspection.subscriptionMatchesLocal,true);
  await page.getByRole('link',{name:'設定',exact:true}).click();
  await context.serviceWorkers()[0].evaluate(async id=>{const clients=await self.clients.matchAll({type:'window',includeUncontrolled:true});for(const c of clients)c.postMessage({type:'tempalist:notification-click',reminderId:id});},reminderId);
  await page.waitForFunction(hash=>location.hash===hash,checklist);
