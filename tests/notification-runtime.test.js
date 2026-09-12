@@ -95,3 +95,32 @@ it('still requires setup if the endpoint or encryption key actually changed',asy
  const s=setup();await s.runtime.enable();s.device.currentSubscription.mockResolvedValue({...subscription,keys:{...subscription.keys,auth:'different'}});
  try{await s.runtime.sync();expect(s.api.upsertReminder).not.toHaveBeenCalled();expect(s.runtime.status().message).toContain('再設定');expect(s.runtime.status().registered).toBe(true);}finally{s.runtime.dispose();}
 });
+it('keeps an API failure and later acknowledgement in a secret-free diagnostic history',async()=>{
+ const s=setup();
+ try{
+  await s.runtime.enable();s.api.upsertReminder.mockRejectedValueOnce({kind:'network',retryable:true,message:'SECRET'});
+  await s.runtime.sync();
+  let report=s.runtime.diagnosticReport();
+  expect(report.pending).toBe(1);expect(report.reservations[0].state).toBe('pending');
+  expect(report.events.map(e=>e.event)).toEqual(['registered','queued','sending','failed']);
+  await s.runtime.retry();report=s.runtime.diagnosticReport();
+  expect(report.pending).toBe(0);expect(report.events.at(-1)).toMatchObject({event:'accepted',operation:'upsert',reminderId:report.reservations[0].reminderId});
+  expect(JSON.stringify(report)).not.toMatch(/SECRET|private|deviceSecret|deviceId|endpoint|p256dh/);
+ }finally{s.runtime.dispose();}
+});
+it('includes blocked subscription updates and device stops in diagnostic pending state',async()=>{
+ const s=setup();
+ try{
+  await s.runtime.enable();s.device.subscribe.mockResolvedValue({...subscription,endpoint:'https://new.example/SECRET'});
+  s.api.updateSubscription.mockRejectedValue({kind:'http',status:403,retryable:false});
+  await expect(s.runtime.enable()).rejects.toBeTruthy();
+  let report=s.runtime.diagnosticReport();expect(report.pending).toBe(1);
+  expect(report.lifecycleOperations).toEqual([{operation:'subscription-update',state:'stopped'}]);
+  expect(report.events.at(-1)).toMatchObject({event:'failed',operation:'subscription-update',status:403});
+  s.api.disableDevice.mockRejectedValue({kind:'network',retryable:true});await s.runtime.disable();
+  report=s.runtime.diagnosticReport();expect(report.pending).toBe(2);
+  expect(report.lifecycleOperations).toContainEqual({operation:'device-disable',state:'pending'});
+  expect(report.events.at(-1)).toMatchObject({event:'failed',operation:'device-disable'});
+  expect(JSON.stringify(report)).not.toMatch(/SECRET|private|deviceSecret|deviceId|endpoint|p256dh/);
+ }finally{s.runtime.dispose();}
+});

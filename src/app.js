@@ -33,14 +33,19 @@ async function notificationTask(node,task){
 function notificationSettings(entity){
   const slots=[['-24h','24時間前',86400000],['-1h','1時間前',3600000],['0h','期限ちょうど',0]];
   const unchanged=s=>{const current=entityIn(s,'checklist',entity.id);return current&&['dueAt','dueHasTime','notificationEnabled'].every(key=>current[key]===entity[key])&&JSON.stringify(current.offsets)===JSON.stringify(entity.offsets);};
-  const dialog=openDialog('期限の通知',`<label class="default-lock-field"><input type="checkbox" name="enabled" ${entity.notificationEnabled?'checked':''}>このリストの通知を受け取る</label><p>選んだタイミングで最大3回通知します。通知にはタイトルや項目の内容を表示しません。</p>${deadlineForm(entity)}${slots.map(([value,label])=>`<label class="default-lock-field"><input type="checkbox" name="offset" value="${value}" ${entity.offsets.includes(value)?'checked':''}><span>${label}<small class="notification-time" data-notification-time="${value}"></small></span></label>`).join('')}<p data-notification-plan role="status"></p><p>${e(notificationSupport()||'初回はブラウザから通知の許可を求めます。')}</p>`,{submit:'保存する',onSubmit:async f=>{
+  const dialog=openDialog('期限の通知',`<label class="default-lock-field"><input type="checkbox" name="enabled" ${entity.notificationEnabled?'checked':''}>このリストの通知を受け取る</label><p>選んだタイミングで最大3回通知します。通知にはタイトルや項目の内容を表示しません。</p>${deadlineForm(entity)}${slots.map(([value,label])=>`<label class="default-lock-field"><input type="checkbox" name="offset" value="${value}" ${entity.offsets.includes(value)?'checked':''}><span>${label}<small class="notification-time" data-notification-time="${value}"></small></span></label>`).join('')}<p data-notification-plan role="status"></p><p>${e(notificationSupport()||'初回はブラウザから通知の許可を求めます。')}</p>`,{submit:'保存する',lockWhileSaving:true,onSubmit:async f=>{
     const enabled=f.has('enabled'),changes={offsets:f.getAll('offset'),...parseDeadline(f.get('date'),f.get('time'))};
     if(!unchanged(store.read()))throw new StorageFailure('別の画面で期限または通知設定が更新されました。画面を開き直してください。','conflict');
     // Validate the intended schedule before requesting permission or registering a device.
     domain.setChecklistNotification(domain.updateChecklist(store.read(),entity.id,changes),entity.id,enabled);
     if(enabled)await notificationRuntime.enable();
     await commit(s=>domain.setChecklistNotification(domain.updateChecklist(s,entity.id,changes),entity.id,enabled),unchanged);
-    toast(enabled?'通知設定を保存しました。同期状況は設定画面で確認できます。':'通知をOFFにしました。');
+    // Bound the UI wait; background retries continue without undoing saved input.
+    let timer,finished;
+    try{finished=await Promise.race([notificationRuntime.sync().then(()=>true),new Promise(resolve=>{timer=setTimeout(()=>resolve(false),10000);})]);}
+    finally{clearTimeout(timer);}
+    const info=notificationRuntime.status();
+    toast(`${enabled?'通知設定を保存しました。':'通知をOFFにしました。'}${!finished?'通知予約の確認が続いています。設定の通知欄を確認してください。':info.pending?'未同期の処理があります。設定の通知欄を確認してください。':info.message}`);
   }});
   bindPickers(dialog);
   function preview(){
@@ -58,6 +63,17 @@ function notificationSettings(entity){
     status.textContent=!form.has('enabled')?'通知はOFFで保存します。':!dueAt?'通知をONにするには、期限の日付を入力してください。':!form.has('offset')?'通知タイミングを1つ以上選んでください。':!future?'選んだ通知時刻はすべて過ぎています。期限を変更するか、これからの通知タイミングを選んでください。':`${future}件の通知を予約します。時刻を過ぎたタイミングでは通知しません。`;
   }
   dialog.querySelector('form').addEventListener('input',preview);dialog.querySelector('form').addEventListener('change',preview);preview();
+}
+function showNotificationDiagnostics(){
+ const report={version:APP_VERSION,...notificationRuntime.diagnosticReport()};
+ const text=JSON.stringify(report,null,2);
+ const dialog=openDialog('通知の診断情報',`<p>予約の送信結果を確認できます。acceptedはAPI応答の確認で、端末への到着を意味しません。この版への更新後の記録が対象です。</p><p>リストの内容・端末の秘密情報は含みません。</p><label>診断情報<textarea rows="12" readonly data-diagnostic-report>${e(text)}</textarea></label><button type="button" data-copy-diagnostics>診断情報をコピー</button><p data-copy-result role="status"></p>`,{cancel:'閉じる'});
+ const form=dialog.querySelector('form'),area=form.querySelector('[data-diagnostic-report]'),result=form.querySelector('[data-copy-result]');
+ const current=()=>dialog.open&&dialog.contains(form);
+ dialog.querySelector('[data-copy-diagnostics]').onclick=async()=>{
+  try{await navigator.clipboard.writeText(text);if(current())result.textContent='コピーしました。調査担当へ貼り付けてください。';}
+  catch{if(current()){area.focus();area.select();result.textContent='診断情報を選択しました。端末のコピー操作を使ってください。';}}
+ };
 }
 function openReminder(id){
   let checklistId;try{checklistId=isUuid(id)?notificationRuntime?.findChecklist(id):null;}catch{/* Missing mappings fall back to the list overview. */}
@@ -295,6 +311,7 @@ main.addEventListener('click',event=>{
       case 'export-checklist':return exportChecklist(id);
       case 'notification-settings':return notificationSettings(entity);
       case 'enable-notifications':return notificationTask(node,async()=>{await notificationRuntime.enable();await notificationRuntime.sync();});
+      case 'notification-diagnostics':return showNotificationDiagnostics();
       case 'retry-notifications':return notificationTask(node,()=>notificationRuntime.retry());
       case 'stop-notifications':return confirmAction('この端末の通知を停止','この端末のすべての通知予約を取り消します。通信できない場合は取消が保留され、通知が届くことがあります。',async()=>{
         await commit(s=>({...s,checklists:s.checklists.map(list=>({...list,notificationEnabled:false}))}));await notificationRuntime.disable();
