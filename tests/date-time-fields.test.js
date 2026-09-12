@@ -1,6 +1,8 @@
-import {beforeEach,it,expect,vi} from 'vitest';
+import {beforeEach,afterEach,it,expect,vi} from 'vitest';
 import {deadlineForm,bindPickers} from '../src/date-time-fields.js';
+import {openDialog} from '../src/ui.js';
 beforeEach(()=>{document.body.innerHTML='<div id="fields">'+deadlineForm()+'</div>';bindPickers(document.querySelector('#fields'));});
+afterEach(()=>{document.querySelector('#fields')?.dispatchEvent(new Event('dialog-dispose'));vi.useRealTimers();});
 function enter(input,value,inputType='insertText',caret=value.length){input.value=value;input.setSelectionRange(caret,caret);input.dispatchEvent(new InputEvent('input',{bubbles:true,inputType}));}
 it('adds separators immediately after the year, month, and hour while typing',()=>{
  const date=document.querySelector('[name=date]'),time=document.querySelector('[name=time]');
@@ -8,8 +10,39 @@ it('adds separators immediately after the year, month, and hour while typing',()
  enter(time,'14');expect(time.value).toBe('14:');expect(time.selectionStart).toBe(3);
  enter(time,'14:30');expect(time.value).toBe('14:30');
 });
-it('selects the entire value on focus and repeated taps',()=>{
- for(const kind of ['date','time']){const input=document.querySelector(`[name=${kind}]`);input.value=kind==='date'?'2026/09/10':'14:30';input.focus();expect(input.selectionStart).toBe(0);expect(input.selectionEnd).toBe(input.value.length);input.setSelectionRange(2,2);input.click();expect(input.selectionStart).toBe(0);expect(input.selectionEnd).toBe(input.value.length);}
+it('selects after 50ms on focus, leaving subsequent taps free to position the caret',()=>{
+ vi.useFakeTimers();
+ for(const kind of ['date','time']){
+  const input=document.querySelector(`[name=${kind}]`);input.value=kind==='date'?'2026/09/10':'14:30';
+  const select=vi.spyOn(input,'select');input.focus();input.click();vi.advanceTimersByTime(49);expect(select).not.toHaveBeenCalled();
+  vi.advanceTimersByTime(1);expect(input.selectionStart).toBe(0);expect(input.selectionEnd).toBe(input.value.length);
+  input.setSelectionRange(2,2);input.click();vi.advanceTimersByTime(100);expect(input.selectionStart).toBe(2);expect(input.selectionEnd).toBe(2);expect(select).toHaveBeenCalledOnce();
+ }
+});
+it('cancels the old selection when moving quickly between fields',()=>{
+ vi.useFakeTimers();const date=document.querySelector('[name=date]'),time=document.querySelector('[name=time]');
+ const selectDate=vi.spyOn(date,'select'),selectTime=vi.spyOn(time,'select');
+ date.focus();vi.advanceTimersByTime(25);time.focus();vi.advanceTimersByTime(25);expect(selectDate).not.toHaveBeenCalled();expect(selectTime).not.toHaveBeenCalled();
+ vi.advanceTimersByTime(25);expect(selectTime).toHaveBeenCalledOnce();expect(document.activeElement).toBe(time);
+});
+it.each(['input','compositionstart'])('does not reselect after early %s starts',type=>{
+ vi.useFakeTimers();const input=document.querySelector('[name=time]'),select=vi.spyOn(input,'select');input.focus();
+ input.value='1';input.dispatchEvent(new Event(type));vi.advanceTimersByTime(100);expect(select).not.toHaveBeenCalled();expect(input.value).toBe('1');
+});
+it('cancels on disposal and rebinding, and ignores detached inputs',()=>{
+ vi.useFakeTimers();const root=document.querySelector('#fields'),input=root.querySelector('[name=date]'),select=vi.spyOn(input,'select');
+ input.focus();bindPickers(root);vi.advanceTimersByTime(100);expect(select).not.toHaveBeenCalled();
+ input.blur();input.focus();vi.advanceTimersByTime(50);expect(select).toHaveBeenCalledOnce();
+ input.blur();input.focus();root.dispatchEvent(new Event('dialog-dispose'));
+ vi.advanceTimersByTime(100);expect(select).toHaveBeenCalledOnce();
+ bindPickers(root);input.blur();input.focus();input.remove();vi.advanceTimersByTime(100);expect(select).toHaveBeenCalledOnce();
+});
+it('disposes pending selection before a dialog closes or replaces its content',()=>{
+ vi.useFakeTimers();document.body.innerHTML='<dialog id="dialog"></dialog>';
+ const dialog=document.querySelector('dialog');dialog.showModal=()=>{dialog.open=true;};dialog.close=()=>{dialog.open=false;};
+ function open(){openDialog('期限',deadlineForm());bindPickers(dialog);const input=dialog.querySelector('[name=date]');input.focus();return vi.spyOn(input,'select');}
+ const first=open();dialog.querySelector('[data-dialog-cancel]').click();vi.advanceTimersByTime(100);expect(first).not.toHaveBeenCalled();
+ const second=open();openDialog('別の画面','<p>内容</p>');vi.advanceTimersByTime(100);expect(second).not.toHaveBeenCalled();
 });
 it('normalizes pasted digits and ISO dates without discarding invalid or excess input',()=>{
  const date=document.querySelector('[name=date]'),time=document.querySelector('[name=time]');

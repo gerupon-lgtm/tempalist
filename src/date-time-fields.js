@@ -22,7 +22,14 @@ export function deadlineForm(entity={dueAt:null,dueHasTime:false}){
  const {date,time}=deadlineFields(entity.dueAt,entity.dueHasTime);
  return `<div class="form-grid deadline-fields">${inputField('date','期限の日付',date.replaceAll('-','/'),'2026/09/10','カレンダーを開く')}${inputField('time','時刻',time,'09:00','時計を開く')}</div><p id="deadline-input-help" class="secondary-text">数字を入力すると /・: を補います。右端のアイコンからも選べます。時刻省略時は09:00です。${e(getTimeZone())}</p>`;
 }
+const pickerBindings=new WeakMap();
 export function bindPickers(root){
+ pickerBindings.get(root)?.();
+ const controller=new root.ownerDocument.defaultView.AbortController(),timers=new Set();
+ const listen=(target,type,handler)=>target.addEventListener(type,handler,{signal:controller.signal});
+ const dispose=()=>{for(const timer of timers)clearTimeout(timer);timers.clear();controller.abort();pickerBindings.delete(root);};
+ pickerBindings.set(root,dispose);
+ listen(root,'dialog-dispose',dispose);
  const nav=root.ownerDocument.defaultView.navigator;
  const directTap=/iPhone|iPad|iPod/.test(nav.userAgent)||(/Macintosh/.test(nav.userAgent)&&nav.maxTouchPoints>1);
  for(const picker of root.querySelectorAll('[data-picker]')){
@@ -39,17 +46,29 @@ export function bindPickers(root){
    if(!event.inputType?.startsWith('delete'))while(caret<next.length&&/[/\-:]/.test(next[caret]))caret++;
    input.setSelectionRange(caret,caret);
   }
-  input.addEventListener('input',format);
-  input.addEventListener('compositionend',format);
-  input.addEventListener('focus',()=>input.select());
-  input.addEventListener('click',()=>input.select());
-  input.addEventListener('blur',()=>{
+  let selectTimer;
+  function cancelSelection(){clearTimeout(selectTimer);timers.delete(selectTimer);selectTimer=undefined;}
+  listen(input,'focus',()=>{
+   cancelSelection();
+   // Match Atoqueue: select after focus, without selecting again on click.
+   selectTimer=setTimeout(()=>{
+    timers.delete(selectTimer);selectTimer=undefined;
+    if(input.isConnected&&input.ownerDocument.activeElement===input)input.select();
+   },50);
+   timers.add(selectTimer);
+  });
+  listen(input,'input',cancelSelection);
+  listen(input,'compositionstart',cancelSelection);
+  listen(input,'input',format);
+  listen(input,'compositionend',format);
+  listen(input,'blur',()=>{
+   cancelSelection();
    try{
     if(kind==='date'){parseDeadline(input.value);input.value=formatDateTimeEntry(input.value,kind);}
     else if(/^([01]\d|2[0-3])[0-5]\d$/.test(input.value))input.value=formatDateTimeEntry(input.value,kind);
    }catch{/* Preserve invalid or partial input for correction. */}
   });
-  picker.addEventListener('change',()=>{
+  listen(picker,'change',()=>{
    input.value=kind==='date'?picker.value.replaceAll('-','/'):picker.value;
    input.dispatchEvent(new Event('change',{bubbles:true}));
   });
@@ -61,9 +80,9 @@ export function bindPickers(root){
    // iOS date/time pickers open through native input focus, not showPicker().
    picker.parentElement.classList.add('picker-direct');picker.tabIndex=0;
    button.tabIndex=-1;button.setAttribute('aria-hidden','true');
-   picker.addEventListener('pointerdown',seedPicker);picker.addEventListener('focus',seedPicker);
+   listen(picker,'pointerdown',seedPicker);listen(picker,'focus',seedPicker);
   }
-  button.addEventListener('click',()=>{
+  listen(button,'click',()=>{
    seedPicker();
    if(directTap){picker.focus();return;}
    try{
@@ -75,4 +94,5 @@ export function bindPickers(root){
    }
   });
  }
+ return dispose;
 }

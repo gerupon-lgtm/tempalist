@@ -23,6 +23,8 @@ export function toast(message) {
 }
 export function openDialog(title, body, {submit='保存する', onSubmit, onCancel, cancel='キャンセル', destructive=false, lockWhileSaving=false} = {}) {
   const dialog = document.querySelector('#dialog');
+  const finish=()=>{dialog.dispatchEvent(new Event('dialog-dispose'));dialog.close();};
+  dialog.dispatchEvent(new Event('dialog-dispose'));
   if (dialog.open) dialog.close();
   dialog.innerHTML = `<form id="dialog-form"><h2 id="dialog-title">${escapeHTML(title)}</h2>${body}<p class="form-error" role="alert"></p><div class="dialog-actions"><button type="button" data-dialog-cancel>${escapeHTML(cancel)}</button>${onSubmit ? `<button type="submit" class="${destructive ? 'danger' : 'primary'}">${escapeHTML(submit)}</button>` : ''}</div></form>`;
   const form=dialog.querySelector('form');
@@ -35,11 +37,11 @@ export function openDialog(title, body, {submit='保存する', onSubmit, onCanc
       const confirmation=document.createElement('div');confirmation.className='notice';
       confirmation.innerHTML='<p>保存していない入力があります。</p><button type="button" data-discard>入力を破棄して閉じる</button> <button type="button" data-continue>編集を続ける</button>';
       form.append(confirmation);
-      confirmation.querySelector('[data-discard]').onclick=()=>{dialog.close();onCancel?.();};
+      confirmation.querySelector('[data-discard]').onclick=()=>{finish();onCancel?.();};
       confirmation.querySelector('[data-continue]').onclick=()=>confirmation.remove();
       confirmation.querySelector('[data-continue]').focus();return;
     }
-    dialog.close(); onCancel?.();
+    finish(); onCancel?.();
   };
   dialog.querySelector('[data-dialog-cancel]').onclick = close;
   dialog.oncancel = event => { event.preventDefault(); close(); };
@@ -53,7 +55,7 @@ export function openDialog(title, body, {submit='保存する', onSubmit, onCanc
     for(const [node] of controls)node.disabled=true;
     try {
       const result = await onSubmit(data);
-      if (result !== false && dialog.open && dialog.contains(form)) dialog.close();
+      if (result !== false && dialog.open && dialog.contains(form)) finish();
     } catch (error) { form.querySelector('.form-error').textContent = error.message; }
     finally {
       saving=false;

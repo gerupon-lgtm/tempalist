@@ -7,6 +7,10 @@ if(ios)await context.addInitScript(()=>{window.showPickerCalls=0;HTMLInputElemen
 const page=await context.newPage(),errors=[];
 page.on('pageerror',error=>errors.push(error.message));
 const button=name=>page.getByRole('button',{name,exact:true});
+async function selectOnFocus(input){
+ await page.getByLabel('タイトル',{exact:true}).focus();await input.tap();
+ await page.waitForFunction(el=>el.selectionStart===0&&el.selectionEnd===el.value.length,await input.elementHandle());
+}
 try{
  await page.goto(process.env.TEST_BASE_URL||'http://127.0.0.1:4173');
  await button('リストを作る').first().click();
@@ -15,14 +19,14 @@ try{
  await date.tap();await date.pressSequentially('2026');assert.equal(await date.inputValue(),'2026/');
  await date.pressSequentially('09');assert.equal(await date.inputValue(),'2026/09/');
  await date.pressSequentially('10');assert.equal(await date.inputValue(),'2026/09/10');
- await date.tap();assert.deepEqual(await date.evaluate(el=>[el.selectionStart,el.selectionEnd]),[0,10]);
+ await selectOnFocus(date);assert.deepEqual(await date.evaluate(el=>[el.selectionStart,el.selectionEnd]),[0,10]);
  await date.pressSequentially('20261011');assert.equal(await date.inputValue(),'2026/10/11');
  // Delete backwards across both separators without getting stuck.
  await date.press('End');for(let i=0;i<12;i++)await date.press('Backspace');assert.equal(await date.inputValue(),'');
  await date.pressSequentially('20260910');
  await time.tap();await time.pressSequentially('14');assert.equal(await time.inputValue(),'14:');
  await time.pressSequentially('30');assert.equal(await time.inputValue(),'14:30');
- await time.tap();assert.deepEqual(await time.evaluate(el=>[el.selectionStart,el.selectionEnd]),[0,5]);
+ await selectOnFocus(time);assert.deepEqual(await time.evaluate(el=>[el.selectionStart,el.selectionEnd]),[0,5]);
  await time.pressSequentially('0930');assert.equal(await time.inputValue(),'09:30');
  await time.press('End');for(let i=0;i<6;i++)await time.press('Backspace');assert.equal(await time.inputValue(),'');
  await time.pressSequentially('1430');
@@ -55,7 +59,7 @@ try{
  const saved=await page.evaluate(()=>JSON.parse(localStorage.getItem('tempalist:data')).checklists[0]);
  assert.equal(saved.dueAt,'2026-09-10T06:45:00.000Z');assert.equal(saved.dueHasTime,true);
  await button('編集').click();assert.equal(await date.inputValue(),'2026/09/10');assert.equal(await time.inputValue(),'15:45');
- await date.tap();await date.press('Backspace');await time.tap();await time.press('Backspace');
+ await selectOnFocus(date);await date.press('Backspace');await selectOnFocus(time);await time.press('Backspace');
  await button('保存する').click();await page.locator('#dialog').waitFor({state:'hidden'});
  assert.equal(await page.evaluate(()=>JSON.parse(localStorage.getItem('tempalist:data')).checklists[0].dueAt),null);
  assert.deepEqual(errors,[]);
