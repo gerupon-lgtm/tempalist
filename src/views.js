@@ -1,3 +1,4 @@
+import {actionItems} from './management-domain.js';
 import {escapeHTML as e,icon} from './ui.js';
 import {formatDateTime,isOverdue} from './dates.js';
 export const statusName={active:'使用中',draft:'下書き',archived:'アーカイブ'};
@@ -23,11 +24,13 @@ export function listCard(list) {
   return `<a class="list-card" href="#/checklist/${list.id}"><div class="card-copy"><h2>${e(list.title)}</h2><div class="meta-line">${list.status==='settled'?`<span>完了 ${e(formatDateTime(list.settledAt))}</span>`:`<span>${icon('clock',15)} ${e(formatDateTime(list.dueAt,{dateOnly:!list.dueHasTime}))}</span>${isOverdue(list.dueAt)?'<span class="badge overdue">期限を過ぎています</span>':''}`}</div><div class="progress-track"><progress max="${list.items.length||1}" value="${checked}" aria-label="チェックの進捗"></progress></div></div><span class="progress-count">${checked} / ${list.items.length}</span>${icon('arrow',18)}</a>`;
 }
 export function lists(state,tab) {
+  const pendingActions=actionItems(state).length;
   const active=state.checklists.filter(c=>c.status==='active'),settled=state.checklists.filter(c=>c.status==='settled');
   const shown=tab==='active'?active.sort((a,b)=>(a.dueAt??'z').localeCompare(b.dueAt??'z')):settled.sort((a,b)=>b.settledAt.localeCompare(a.settledAt));
   return heading('いつもの段取りを、ひとつずつ。','今日の確認も、次の準備も。',button('new-list','リストを作る','primary'))+
     `<div class="tabs" role="tablist" aria-label="リストの状態">${['active','settled'].map((s,i)=>button('list-tab',`${i?'完了':'進行中'} <span class="count">${i?settled.length:active.length}</span>`,'',`role="tab" aria-selected="${s===tab}" data-value="${s}"`)).join('')}</div>`+
     (shown.length?`<div class="list-stack">${shown.map(listCard).join('')}</div>`:`<div class="empty-state"><div class="empty-mark">${icon('list',33)}</div><h2>${tab==='active'?'いま、進行中のリストはありません':'完了したリストがここに並びます'}</h2><p>${tab==='active'?'テンプレートから、または空のリストから。必要な確認だけを、手元に。':'チェックを終えたら「完了を確定する」で保存できます。'}</p>${button('new-list','リストを作る','primary')}</div>`)+
+    (pendingActions?`<section class="list-stack list-actions-entry" aria-label="管理の対応リスト"><a class="list-card" href="#/actions"><div class="card-copy"><h2>対応リスト</h2><span class="meta-line">管理リストの要対応 ${pendingActions}件</span></div>${icon('arrow',18)}</a></section>`:'')+
     `<section class="template-start"><div class="section-head"><h2>テンプレートから始める</h2><a href="#/templates">すべて見る</a></div><div class="template-grid">${state.templates.filter(t=>t.status==='active').map(t=>button('from-template',`<span class="tile-icon">${icon('template')}</span><span>${e(t.name)}</span><small>${t.items.length}項目</small>`,'template-tile',`data-id="${t.id}"`)).join('')||'<p class="muted">使用中のテンプレートがありません。</p>'}</div></section>`;
 }
 export function templates(state,tab) {

@@ -22,10 +22,15 @@ try{
  await page.getByLabel('作成するリストの並び順をロックする').check();await button('作成する').click();await closed();
  const template=(await saved()).templates.at(-1);
  const home=await newManagement('自宅の日用品',template.id),lab=await newManagement('研究室',template.id);
+ await route('lists');assert.equal(await page.locator('main a[href="#/actions"]').count(),0);await route('management/'+lab.id);
  assert.equal(lab.orderLocked,true);assert.equal(await page.locator('[data-management-action=up]').count(),0);
  await route('management/'+home.id);await page.getByRole('checkbox',{name:'洗剤を要対応にする',exact:true}).check();await waitNeed(home.id,home.items[0].id,true);
  await route('management/'+lab.id);await page.getByRole('checkbox',{name:'洗剤を要対応にする',exact:true}).check();await waitNeed(lab.id,lab.items[0].id,true);
- await route('actions');assert.equal(await page.locator('[data-management-check=complete]').count(),2);
+ await route('lists');
+ const entry=page.locator('main a[href="#/actions"]');await entry.waitFor();assert.match(await entry.textContent(),/要対応 2件/);
+ assert.ok(await entry.evaluate(el=>Boolean(el.compareDocumentPosition(document.querySelector('.template-start'))&Node.DOCUMENT_POSITION_FOLLOWING)));
+ await page.locator('[data-action="list-tab"][data-value="settled"]').click();await entry.waitFor();
+ await entry.click();await page.getByRole('heading',{name:'対応リスト',exact:true}).waitFor();assert.equal(await page.locator('[data-management-check=complete]').count(),2);
  await page.getByRole('checkbox',{name:'自宅の日用品の洗剤を対応済みにする',exact:true}).click();await waitNeed(home.id,home.items[0].id,false);
  await button('元に戻す').waitFor();assert.equal(await page.locator('[data-management-check=complete]').count(),1);
  await button('元に戻す').click();await waitNeed(home.id,home.items[0].id,true);assert.equal((await saved()).managementLists[0].items[0].lastCompletedAt,null);
