@@ -140,3 +140,15 @@ main:has(>.tabs)>.page-heading h1{font-size:clamp(1rem,4.6vw,1.25rem);margin-bot
 .input-with-picker.picker-direct:has(.native-picker:focus-visible)>button{outline:3px solid var(--brand);outline-offset:2px}
 
 .checklist-link-preview li{overflow-wrap:anywhere;white-space:pre-wrap}
+
+/* Management lists share the existing card and control language. */
+.app-header nav{display:grid;grid-template-columns:1fr 1fr 1.4fr 1fr;gap:4px}
+.app-header nav a{min-width:0;text-align:center;padding-inline:4px}
+.management-actions-link{margin-bottom:20px}.management-section-title{font-size:1.1rem;margin:24px 0 12px}
+.management-items .item-copy{min-width:0}.management-items .item-label{font-size:1rem;overflow-wrap:anywhere}
+.management-items .needs-action{background:var(--brand-soft)}
+.management-last,.management-source{display:block;font-size:.8rem;color:var(--muted);margin-top:5px;overflow-wrap:anywhere}
+.management-source{color:var(--brand)}.management-action-shortcut{display:flex;align-items:center;gap:8px;margin:0 0 14px;min-height:44px}
+.management-undo{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px;margin:12px 0;border:1px solid var(--line);border-radius:12px;background:var(--brand-soft)}
+.management-undo span{overflow-wrap:anywhere;min-width:0}.management-undo button{flex-shrink:0}
+@media(max-width:380px){.app-header nav a{font-size:.82rem}.management-items .item-label{font-size:.9rem}}

@@ -1,3 +1,4 @@
+import {createManagementUI} from './management-ui.js';
 import * as domain from './domain.js';
 import {parseDeadline,formatDateTime} from './dates.js';
 import {deadlineForm,bindPickers} from './date-time-fields.js';
@@ -168,6 +169,7 @@ let store,state,listTab='active',templateTab='active',stopDrag=()=>{},stopCards=
 const entityIn=(s,kind,id)=>(kind==='template'?s.templates:s.checklists).find(x=>x.id===id);
 const locationInfo=()=>{const [,page='lists',id]=location.hash.split('/');return {page,id};};
 const go=path=>{location.hash='/'+path;};
+const management=createManagementUI({main,getState:()=>state,commit,go,render});
 function backup(){download(`tempalist-${new Date().toISOString().slice(0,10)}.json`,exportBackup(store.read()));}
 async function commit(change,expected=null) {
   const save=()=>{
@@ -260,7 +262,7 @@ async function exportChecklist(id){
 }
 function importPreview(value){
   const shared=value.kind==='template';
-  openDialog(shared?'共有テンプレートの確認':'バックアップの取り込み',shared?`<h3>${e(value.name)}</h3><ol class="preview-items">${value.items.map(i=>`<li>${e(i.label)}${i.note?`<br><small>${e(i.note)}</small>`:''}</li>`).join('')}</ol><p>下書きとして追加します。内容を確認してから使用中に切り替えてください。</p>`:`<p>テンプレート ${value.templates.length}件、リスト ${value.checklists.length}件を追加します。</p><p>同じファイルも別データとして追加されます。設定はこの端末のものを維持し、通知はオフになります。現在の保持期間により、期限を過ぎた完了リストは削除されます。</p>`,{submit:shared?'下書きに追加':'追加する',onSubmit:async()=>{
+  openDialog(shared?'共有テンプレートの確認':'バックアップの取り込み',shared?`<h3>${e(value.name)}</h3><ol class="preview-items">${value.items.map(i=>`<li>${e(i.label)}${i.note?`<br><small>${e(i.note)}</small>`:''}</li>`).join('')}</ol><p>下書きとして追加します。内容を確認してから使用中に切り替えてください。</p>`:`<p>テンプレート ${value.templates.length}件、リスト ${value.checklists.length}件${value.managementLists?`、管理リスト ${value.managementLists.length}件`:""}を追加します。</p><p>同じファイルも別データとして追加されます。設定はこの端末のものを維持し、通知はオフになります。現在の保持期間により、期限を過ぎた完了リストは削除されます。</p>`,{submit:shared?'下書きに追加':'追加する',onSubmit:async()=>{
     const saved=await commit(s=>shared?domain.createTemplate(s,{name:value.name,items:value.items,defaultOrderLocked:value.defaultOrderLocked,status:'draft'}):importBackup(s,value));
     go(shared?'template/'+saved.templates.at(-1).id:'lists');toast('データを追加しました');
   }});
@@ -283,9 +285,10 @@ function render(){
   stopDrag();stopCards();if(!state)return;
   const {page,id}=locationInfo();
   rememberChecklist(page,id);
-  document.querySelectorAll('[data-nav]').forEach(a=>{if(a.dataset.nav===(page==='template'?'templates':page==='checklist'?'lists':page))a.setAttribute('aria-current','page');else a.removeAttribute('aria-current');});
+  document.querySelectorAll('[data-nav]').forEach(a=>{if(a.dataset.nav===(page==='template'?'templates':page==='checklist'?'lists':page==='actions'?'management':page))a.setAttribute('aria-current','page');else a.removeAttribute('aria-current');});
   let bytes=0;try{bytes=storageUsage(localStorage);}catch{/* read errors handled by the store */}
   if(page==='lists')main.innerHTML=view.lists(state,listTab);
+  else if(page==='management'||page==='actions'){main.innerHTML=management.html(page,id);stopCards=management.attach(page,id);}
   else if(page==='templates')main.innerHTML=view.templates(state,templateTab);
   else if(page==='settings')main.innerHTML=view.settings(state,bytes,APP_VERSION);
   else if(page==='template'||page==='checklist'){

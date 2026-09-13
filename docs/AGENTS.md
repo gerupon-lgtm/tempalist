@@ -81,3 +81,5 @@ npm run package:site # _siteに配信対象だけ準備。公開操作は行わ�
 - PWA更新: src/pwa.jsがインストール・更新案内を管理。sw.jsのシェル取得はcache:reloadでHTTP旧版混入を防ぎ、version.js・manifestと版を照合する。無条件のskipWaitingやlocalStorage削除で更新問題を回避しない。旧版用/update/はアプリモジュールに依存しない入口として維持する。pwa-update.md参照。
 
 - v0.4.3のPush診断履歴だけはSWからlocalStorageを使えないため専用Cache Storageへ保存する。業務データは従来どおりlocalStorageのみ。診断は日時・予約ID・成否など許可項目だけの最大100件とし、受信・表示処理を妨げない。
+
+- v0.5.0: 管理リストはschemaVersion:2のmanagementListsに保存する。形式1は管理作成まで維持し、新版データを旧版へ読み飛ばして上書きさせない。共通対応リストはneedsActionから導出し、通知・期限・あとキュー連携を追加しない。対応完了・取り消しは項目revisionを照合して状態と前回日時を一括保存。詳細は連動リスト仕様.md。

@@ -1,8 +1,8 @@
-const VERSION='0.4.4';
+const VERSION='0.5.0';
 const CACHE=`tempalist-shell-${VERSION}`;
 const SHELL=['/','/index.html','/manifest.webmanifest','/assets/icon.svg','/assets/icon-192.png','/assets/icon-512.png',
  '/update/','/update/index.html','/src/pwa.js','/src/update-page.js','/src/date-time-fields.js','/src/checklist-link.js',
- '/src/app.js','/src/card-interactions.js','/src/checklist-record.js','/src/dates.js','/src/domain.js','/src/reorder.js','/src/samples.js','/src/storage.js','/src/styles.css','/src/transfer.js','/src/ui.js','/src/version.js','/src/views.js',
+ '/src/app.js','/src/management-domain.js','/src/management-ui.js','/src/card-interactions.js','/src/checklist-record.js','/src/dates.js','/src/domain.js','/src/reorder.js','/src/samples.js','/src/storage.js','/src/styles.css','/src/transfer.js','/src/ui.js','/src/version.js','/src/views.js',
  '/src/notification/browser-diagnostics.js','/src/notification/diagnostics.js','/src/notification/api.js','/src/notification/queue.js','/src/notification/runtime.js','/src/notification/device.js'];
 const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const RECEIPTS='tempalist-push-diagnostics-v1',RECEIPT_PATH='/__tempalist_push_diagnostics__';

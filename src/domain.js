@@ -1,3 +1,4 @@
+import {sanitizeManagementLists} from './management-domain.js';
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const UTC_ISO_PATTERN = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.(\d{1,3}))?Z$/;
 const TEMPLATE_STATUSES = new Set(['draft', 'active', 'archived']);
@@ -240,7 +241,8 @@ export function emptyState() {
 
 export function validateState(value) {
   const source = requireObject(value, 'データ');
-  if (source.schemaVersion !== 1) fail('未対応のデータ形式です');
+  if (![1,2].includes(source.schemaVersion)) fail('未対応のデータ形式です');
+  if(source.schemaVersion===1&&source.managementLists!==undefined) fail('管理リストには新版のデータ形式が必要です');
   if (!Number.isInteger(source.revision) || source.revision < 0) fail('リビジョンが不正です');
   if (!Array.isArray(source.templates) || !Array.isArray(source.checklists)) fail('保存データが不正です');
   const templates = source.templates.map(sanitizeTemplate);
@@ -250,7 +252,8 @@ export function validateState(value) {
   const settings = requireObject(source.settings, '設定');
   if (!RETENTIONS.has(settings.completedRetention)) fail('保持期間の設定が不正です');
   return {
-    schemaVersion: 1,
+    schemaVersion: source.schemaVersion,
+    ...(source.schemaVersion===2?{managementLists:sanitizeManagementLists(source.managementLists)}:{}),
     revision: source.revision,
     templates,
     checklists,

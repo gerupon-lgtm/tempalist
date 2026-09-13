@@ -211,3 +211,18 @@ receivedFrom.direct=trueのリストが同じsource/requestIdで残っていれ�
 ### v0.4.1 期限ちょうどの通知
 
 Checklist.offsetsとReminderMap.slotKeyに`0h`を追加。新規リスト（あとキュー経由を含む）の既定は3枠、通知ON/OFFの既定は引き続きOFF。旧データのoffsetsは補完せず維持する。0hはdueAtそのものを予約し、現在時刻以前なら新規予約しない。schemaVersionは1のまま、0hを含むバックアップの読み込みにはv0.4.1以降が必要。旧版は未知のオフセットとして拒否する。資格情報・既存reminderIdは変更しない。
+
+
+## v0.5.0 管理リストと保存形式2
+
+管理リストがない従来データはschemaVersion:1として引き続き読める。初めて管理リストを作るか形式2のバックアップを取り込む際に、同じtempalist:dataの1回の保存でschemaVersion:2へ移行し、managementLists配列を追加する。テンプレート・通常リスト・設定・revisionを保持する。形式2ではmanagementListsを必須とし、形式1にmanagementListsを混在させたデータは拒否する。
+
+ManagementList: id、name、sourceTemplateId（null可）、orderLocked、items、createdAt、updatedAt。ManagementItem: id、label、note、needsAction、lastCompletedAt（null可）、revision。項目名はtrim後で同一管理リスト内の重複を禁止し、管理リストIDと管理項目IDの重複を検証する。日時は正規化したUTC ISO文字列。対応済み履歴の配列は持たない。
+
+共通対応リストはneedsAction=trueの管理項目から導出する。別のコピーは保存しない。対応完了でneedsAction=falseとlastCompletedAtを同時更新する。手動で要対応を解除してもlastCompletedAtを変えない。各項目のrevisionはチェック・対応・項目編集のたびに増え、古い画面からの操作を拒否する。リスト編集・順序・削除では表示時点のリスト全体も照合する。
+
+取り消し用の直近1件（対象ID、操作直後のrevision、以前のlastCompletedAt）はページメモリだけに置く。対象revisionが一致する場合だけneedsAction=trueと以前の日時へ戻す。項目を変更後に元と同じチェック状態に戻した場合も、revisionで古い取り消しを拒否する。ブラウザ再読み込み後には取り消せない。
+
+全体バックアップは保存形式に合わせて1または2を出力する。形式2には管理リストも含める。取り込みは追加方式で管理リスト・項目IDを再発行し、要対応状態・前回対応日時を保持、項目revisionを0へ初期化する。テンプレート参照は同時取り込み分へ張り直し、それ以外はnull。端末設定は移行先を維持し、管理リストを通常の完了リスト保持期間で削除しない。
+
+旧アプリは形式2を読めず保存を中止するため、管理データを無視して上書きすることはない。旧画面が読み込みエラーになった場合はサイトデータを削除せず、同じブラウザの/update/からv0.5.0以降へ更新する。通常テンプレート共有・チェックリスト証跡・あとキュー起動パラメータの形式1契約は変更しない。
