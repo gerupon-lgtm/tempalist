@@ -103,8 +103,8 @@ main>.collection-heading h1{font-size:clamp(1rem,4.6vw,1.25rem);margin-bottom:6p
 .detail-heading>div{display:contents}
 .detail-heading h1{grid-column:1;grid-row:1;align-self:center;font-size:clamp(1.0625rem,5vw,1.375rem);line-height:1.5;letter-spacing:0;margin:0;min-width:0;word-break:normal;overflow-wrap:anywhere;line-break:strict;text-wrap:pretty}
 .detail-heading p{grid-column:1/-1;grid-row:2;margin:0}
-.detail-heading>[data-action=edit-meta]{grid-column:2;grid-row:1;align-self:start;height:44px;min-height:44px;max-height:44px;min-width:60px;padding:0 12px;white-space:nowrap;font-size:.9rem;line-height:1.25}
-.detail-heading:not(:has(>[data-action=edit-meta])) h1{grid-column:1/-1}
+.detail-heading>.detail-edit{grid-column:2;grid-row:1;align-self:start;height:44px;min-height:44px;max-height:44px;min-width:60px;padding:0 12px;white-space:nowrap;font-size:.9rem;line-height:1.25}
+.detail-heading:not(:has(>.detail-edit)) h1{grid-column:1/-1}
 @supports(word-break:auto-phrase){.detail-heading h1{word-break:auto-phrase}}
 
 .deadline-fields{grid-template-columns:minmax(0,1.4fr) minmax(0,1fr)}
@@ -145,12 +145,15 @@ main>.collection-heading h1{font-size:clamp(1rem,4.6vw,1.25rem);margin-bottom:6p
 .app-header nav{display:grid;grid-template-columns:1fr 1fr 1.4fr 1fr;gap:4px}
 .app-header nav a{min-width:0;text-align:center;padding-inline:4px}
 .management-actions-link{margin-bottom:20px}.management-section-title{font-size:1.1rem;margin:24px 0 12px}
-.management-items .item-copy{min-width:0}.management-items .item-label{font-size:1rem;overflow-wrap:anywhere}
+.management-items .item-copy{min-width:0}
 .management-items .needs-action{background:var(--brand-soft)}
 .management-last,.management-source{display:block;font-size:.8rem;color:var(--muted);margin-top:5px;overflow-wrap:anywhere}
 .management-source{color:var(--brand)}.management-action-shortcut{display:flex;align-items:center;gap:8px;margin:0 0 14px;min-height:44px}
 .management-undo{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px;margin:12px 0;border:1px solid var(--line);border-radius:12px;background:var(--brand-soft)}
 .management-undo span{overflow-wrap:anywhere;min-width:0}.management-undo button{flex-shrink:0}
-@media(max-width:380px){.app-header nav a{font-size:.82rem}.management-items .item-label{font-size:.9rem}}
+@media(max-width:380px){.app-header nav a{font-size:.82rem}}
 
 .list-actions-entry{margin-top:13px}
+
+.settings-panel h2{font-size:1.08rem}
+@media(max-width:680px){.settings-panel h2{font-size:1rem}}

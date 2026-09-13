@@ -1,6 +1,6 @@
 import * as model from './management-domain.js';
 import {escapeHTML as e,icon,field,openDialog,toast} from './ui.js';
-import {heading} from './views.js';
+import {heading,labelUnits} from './views.js';
 import {formatDateTime} from './dates.js';
 import {attachReorder} from './reorder.js';
 import {attachCardInteractions} from './card-interactions.js';
@@ -29,16 +29,16 @@ export function createManagementUI({main,getState,commit,go,render}){
  }
  function detail(list){
   return `<a class="back" href="#/management">${icon('back',16)} 管理一覧に戻る</a>`+
-   heading(list.name,'不足・対応が必要なものにチェックしてください。',button('edit-list','編集'),'detail-heading')+
+   heading(list.name,'不足・対応が必要なものにチェックしてください。',button('edit-list','編集','detail-edit'),'detail-heading')+
    `<a class="management-action-shortcut" href="#/actions">対応リストを見る（全体 ${model.actionItems(getState()).length}件） ${icon('arrow',16)}</a>`+undoNotice()+
    `<section class="order-lock-setting"><div><strong>並び順ロック</strong><p>${list.orderLocked?'並べ替えを防ぎます。チェック・編集はそのまま使えます。':'カードの長押しや↑↓で並べ替えできます。'}</p></div>${button('lock',`<span class="switch-track" aria-hidden="true"></span><span>${list.orderLocked?'ON':'OFF'}</span>`,'order-lock-switch',`role="switch" aria-label="並び順ロック" aria-checked="${list.orderLocked}"`)}</section>`+
-   `<ol class="items management-items">${list.items.map((item,index)=>`<li class="item-row ${list.orderLocked?'':'reorderable'} ${item.needsAction?'needs-action':''}" data-item="${item.id}" data-list="${list.id}" data-index="${index}"><label class="row-check"><input type="checkbox" data-management-check="need" data-revision="${item.revision}" aria-label="${e(item.label)}を要対応にする" ${item.needsAction?'checked':''}></label><div class="item-copy"><span class="item-label">${e(item.label)}</span>${item.note?`<span class="item-note">${e(item.note)}</span>`:''}<small class="management-last">前回対応：${item.lastCompletedAt?e(formatDateTime(item.lastCompletedAt)):'未記録'}</small></div>${controls(list,item,index)}</li>`).join('')||'<li class="empty-state">項目を追加してください。</li>'}</ol>`+
+   `<ol class="items management-items">${list.items.map((item,index)=>`<li class="item-row ${list.orderLocked?'':'reorderable'} ${item.needsAction?'needs-action':''}" data-item="${item.id}" data-list="${list.id}" data-index="${index}"><label class="row-check"><input type="checkbox" data-management-check="need" data-revision="${item.revision}" aria-label="${e(item.label)}を要対応にする" ${item.needsAction?'checked':''}></label><div class="item-copy"><span class="item-label" data-label-units="${labelUnits(item.label)}">${e(item.label)}</span>${item.note?`<span class="item-note">${e(item.note)}</span>`:''}<small class="management-last">前回対応：${item.lastCompletedAt?e(formatDateTime(item.lastCompletedAt)):'未記録'}</small></div>${controls(list,item,index)}</li>`).join('')||'<li class="empty-state">項目を追加してください。</li>'}</ol>`+
    button('add-item',`${icon('plus',18)} 項目を追加`,'add-item')+`<div class="detail-bottom">${button('delete-list','管理リストを削除','danger-link')}</div>`;
  }
  function actions(){
   const entries=model.actionItems(getState());
-  return `<a class="back" href="#/management">${icon('back',16)} 管理一覧に戻る</a>`+heading('対応リスト','購入・補充などが済んだものにチェックしてください。')+undoNotice()+
-   `<p class="secondary-text">要対応 ${entries.length}件 · 元の管理リスト順に表示</p><ol class="items management-items">${entries.map(({listId,listName,item})=>`<li class="item-row" data-item="${item.id}" data-list="${listId}"><label class="row-check"><input type="checkbox" data-management-check="complete" data-revision="${item.revision}" aria-label="${e(listName)}の${e(item.label)}を対応済みにする"></label><div class="item-copy"><span class="item-label">${e(item.label)}</span><a class="management-source" href="#/management/${listId}">${e(listName)}</a>${item.note?`<span class="item-note">${e(item.note)}</span>`:''}</div></li>`).join('')||'<li class="empty-state"><h2>必要な対応はありません</h2><p>管理リストでチェックすると、ここに集まります。</p></li>'}</ol>`;
+  return `<a class="back" href="#/management">${icon('back',16)} 管理一覧に戻る</a>`+heading('対応リスト','購入・補充などが済んだものにチェックしてください。','','detail-heading')+undoNotice()+
+   `<p class="secondary-text">要対応 ${entries.length}件 · 元の管理リスト順に表示</p><ol class="items management-items">${entries.map(({listId,listName,item})=>`<li class="item-row" data-item="${item.id}" data-list="${listId}"><label class="row-check"><input type="checkbox" data-management-check="complete" data-revision="${item.revision}" aria-label="${e(listName)}の${e(item.label)}を対応済みにする"></label><div class="item-copy"><span class="item-label" data-label-units="${labelUnits(item.label)}">${e(item.label)}</span><a class="management-source" href="#/management/${listId}">${e(listName)}</a>${item.note?`<span class="item-note">${e(item.note)}</span>`:''}</div></li>`).join('')||'<li class="empty-state"><h2>必要な対応はありません</h2><p>管理リストでチェックすると、ここに集まります。</p></li>'}</ol>`;
  }
  function newList(){
   const templates=getState().templates.filter(template=>template.status==='active');
