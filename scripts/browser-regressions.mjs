@@ -11,8 +11,8 @@ async function dialogDone(){await page.locator('#dialog').waitFor({state:'hidden
 try{
  await page.goto('http://127.0.0.1:4173');
  await page.getByRole('link',{name:'テンプレート',exact:true}).click();
- assert.equal((await saved()).templates.length,5);
- assert.equal((await saved()).templates.reduce((n,t)=>n+t.items.length,0),37);
+ assert.equal((await saved()).templates.length,9);
+ assert.equal((await saved()).templates.reduce((n,t)=>n+t.items.length,0),62);
  await button('新しく作る').click();
  await page.getByLabel('テンプレート名',{exact:true}).fill('50項目の確認');
  await page.getByLabel('項目（1行に1項目）',{exact:true}).fill(Array.from({length:50},(_,i)=>`確認 ${i+1}`).join('\n'));

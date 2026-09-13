@@ -52,7 +52,7 @@ try{
  await page.getByLabel('項目名',{exact:true}).fill('食器用洗剤');await button('保存する').click();await closed();await route('actions');await page.getByRole('checkbox',{name:'実験室の食器用洗剤を対応済みにする',exact:true}).waitFor();
  // Backup includes management; import uses new identities while preserving dates and pending flags.
  await route('settings');const [download]=await Promise.all([page.waitForEvent('download'),button('JSONを書き出す').click()]);const backup=JSON.parse(await readFile(await download.path(),'utf8'));
- assert.equal(backup.schemaVersion,2);assert.equal(backup.managementLists.length,2);assert.equal(backup.managementLists[0].items.find(item=>item.id===home.items[0].id).lastCompletedAt,last);
+ assert.equal(backup.schemaVersion,3);assert.equal(backup.managementLists.length,2);assert.equal(backup.managementLists[0].items.find(item=>item.id===home.items[0].id).lastCompletedAt,last);
  const copy=await context.newPage();await copy.goto(origin+'/#/settings');
  await copy.locator('#import-file').setInputFiles({name:'management-backup.json',mimeType:'application/json',buffer:Buffer.from(JSON.stringify(backup))});
  await copy.getByText(/管理リスト 2件を追加/).waitFor();await copy.getByRole('button',{name:'追加する',exact:true}).click();await copy.locator('#dialog').waitFor({state:'hidden'});

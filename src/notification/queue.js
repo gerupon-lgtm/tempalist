@@ -18,15 +18,15 @@ export function reconcile(snapshot,lists,now=Date.now()){
   if(!list.notificationEnabled||list.status!=='active'||!list.dueAt)continue;
   for(const slot of list.offsets){
    if(!Object.hasOwn(offsets,slot))continue;
-   const scheduledAt=new Date(Date.parse(list.dueAt)+offsets[slot]).toISOString();
-   let map=state.maps.find(m=>m.checklistId===list.id&&m.slotKey===slot);
+   const scheduledAt=list.scheduledSlots?.[slot]??new Date(Date.parse(list.dueAt)+offsets[slot]).toISOString();
+   let map=state.maps.find(m=>m.checklistId===list.id&&m.slotKey===slot&&(m.managementListId??null)===(list.managementListId??null));
    const pending=map&&state.outbox.find(o=>o.reminderId===map.reminderId);
    if(Date.parse(scheduledAt)<=now){
     // Acknowledged past slots remain for notification-click resolution, without rescheduling.
     if(map&&map.scheduledAt===scheduledAt&&!pending)wanted.add(map.reminderId);
     continue;
    }
-   if(!map){map={reminderId:crypto.randomUUID(),checklistId:list.id,slotKey:slot,scheduledAt:null};state.maps.push(map);}
+   if(!map){map={reminderId:crypto.randomUUID(),checklistId:list.id,...(list.managementListId?{managementListId:list.managementListId}:{}),slotKey:slot,scheduledAt:null};state.maps.push(map);}
    wanted.add(map.reminderId);
    if(map.scheduledAt!==scheduledAt||pending?.operation==='cancel'){
     map.scheduledAt=scheduledAt;
@@ -55,8 +55,8 @@ export function readNotifications(storage){
   const s=JSON.parse(raw);
   if(s?.schemaVersion!==1||!Array.isArray(s.maps)||!Array.isArray(s.outbox)||!Object.hasOwn(s,'device')||!Object.hasOwn(s,'disable'))throw new Error();
   if(s.device!==null&&(!isUuid(s.device.deviceId)||typeof s.device.deviceSecret!=='string'||!s.device.deviceSecret||s.device.appId!=='tempalist'||s.device.protocolVersion!==2))throw new Error();
-  if(s.maps.some(m=>!isUuid(m.reminderId)||!isUuid(m.checklistId)||!Object.hasOwn(offsets,m.slotKey)||!Number.isFinite(Date.parse(m.scheduledAt))))throw new Error();
-  if(new Set(s.maps.map(m=>m.reminderId)).size!==s.maps.length||new Set(s.maps.map(m=>`${m.checklistId}/${m.slotKey}`)).size!==s.maps.length)throw new Error();
+  if(s.maps.some(m=>!isUuid(m.reminderId)||!isUuid(m.checklistId)||(m.managementListId!==undefined&&!isUuid(m.managementListId))||!Object.hasOwn(offsets,m.slotKey)||!Number.isFinite(Date.parse(m.scheduledAt))))throw new Error();
+  if(new Set(s.maps.map(m=>m.reminderId)).size!==s.maps.length||new Set(s.maps.map(m=>`${m.managementListId??'checklist'}/${m.checklistId}/${m.slotKey}`)).size!==s.maps.length)throw new Error();
   if(s.outbox.some(o=>!isUuid(o.id)||!isUuid(o.reminderId)||!['upsert','cancel'].includes(o.operation)||!Number.isFinite(Date.parse(o.nextAttemptAt))||!Number.isInteger(o.attemptCount)||typeof o.blocked!=='boolean'||!s.maps.some(m=>m.reminderId===o.reminderId)))throw new Error();
   if(s.disable!==null&&(!isUuid(s.disable.id)||!Number.isFinite(Date.parse(s.disable.nextAttemptAt))||typeof s.disable.blocked!=='boolean'))throw new Error();
   return s;

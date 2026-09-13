@@ -78,7 +78,7 @@ it('preserves legacy format until management creation, then backs up all data in
  expect(domain.expiredChecklistIds(imported,'2028-01-01T00:00:00.000Z')).toEqual([]);
  expect(domain.validateState(imported)).toEqual(imported);
  const again=importBackup(imported,parseTransfer(exportBackup(legacy)));expect(again.managementLists).toEqual(imported.managementLists);
- expect(()=>parseTransfer(JSON.stringify({...parsed,schemaVersion:3}))).toThrow();
+ expect(()=>parseTransfer(JSON.stringify({...parsed,schemaVersion:4}))).toThrow();
  expect(()=>domain.validateState({...state,schemaVersion:1})).toThrow();
 });
 it('validates malformed management state and does not silently discard unknown data',()=>{

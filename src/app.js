@@ -1,7 +1,8 @@
+import {notificationSources,expiryTime} from './expiry.js';
 import {createManagementUI} from './management-ui.js';
 import * as domain from './domain.js';
 import {parseDeadline,formatDateTime} from './dates.js';
-import {deadlineForm,bindPickers} from './date-time-fields.js';
+import {deadlineForm,bindPickers,expiryTimeForm} from './date-time-fields.js';
 import {createStore,storageUsage,WARNING_BYTES,StorageFailure} from './storage.js';
 import {exportBackup,importBackup,shareTemplate,readSharedTemplate,parseTransfer} from './transfer.js';
 import {readChecklistLink,findLinkedChecklist,createLinkedChecklist} from './checklist-link.js';
@@ -85,8 +86,20 @@ function showNotificationDiagnostics(){
  };
 }
 function openReminder(id){
-  let checklistId;try{checklistId=isUuid(id)?notificationRuntime?.findChecklist(id):null;}catch{/* Missing mappings fall back to the list overview. */}
-  go(checklistId&&state.checklists.some(list=>list.id===checklistId)?'checklist/'+checklistId:'lists');
+ let target;try{target=isUuid(id)?notificationRuntime?.findTarget(id):null;}catch{/* Unknown mappings fall back safely. */}
+ if(target?.kind==='management'){
+  const list=state.managementLists?.find(list=>list.id===target.listId);
+  go(list?'management/'+list.id:'management');return;
+ }
+ go(target&&state.checklists.some(list=>list.id===target.listId)?'checklist/'+target.listId:'lists');
+}
+function expiryTimeSettings(){
+ const before=state.settings.expiryNotificationTime??'09:00';
+ const dialog=openDialog('消費期限の通知時刻',expiryTimeForm(before),{submit:'保存する',lockWhileSaving:true,onSubmit:async form=>{
+  const value=expiryTime(form.get('time'));
+  await commit(s=>({...s,schemaVersion:3,managementLists:s.managementLists??[],settings:{...s.settings,expiryNotificationTime:value}}),s=>(s.settings.expiryNotificationTime??'09:00')===before);
+  toast('通知時刻を保存しました。未来の通知予約を更新します。');
+ }});bindPickers(dialog);
 }
 async function checkNotificationConnection(button){
   const status=document.querySelector('#notification-connection-status');
@@ -169,7 +182,7 @@ let store,state,listTab='active',templateTab='active',stopDrag=()=>{},stopCards=
 const entityIn=(s,kind,id)=>(kind==='template'?s.templates:s.checklists).find(x=>x.id===id);
 const locationInfo=()=>{const [,page='lists',id]=location.hash.split('/');return {page,id};};
 const go=path=>{location.hash='/'+path;};
-const management=createManagementUI({main,getState:()=>state,commit,go,render});
+const management=createManagementUI({main,getState:()=>state,commit,go,render,enableNotifications:()=>notificationRuntime.enable()});
 function backup(){download(`tempalist-${new Date().toISOString().slice(0,10)}.json`,exportBackup(store.read()));}
 async function commit(change,expected=null) {
   const save=()=>{
@@ -320,13 +333,14 @@ main.addEventListener('click',event=>{
     switch(name){
       case 'save-remarks':await saveRemarks(id);return toast('備考を保存しました');
       case 'export-checklist':return exportChecklist(id);
+      case 'expiry-time':return expiryTimeSettings();
       case 'notification-settings':return notificationSettings(entity);
       case 'enable-notifications':return notificationTask(node,async()=>{await notificationRuntime.enable();await notificationRuntime.sync();});
       case 'notification-diagnostics':return showNotificationDiagnostics();
       case 'test-notification-display':return notificationTask(node,async()=>{const result=document.querySelector('[data-display-test-result]');if(result)result.textContent='通知の表示を試しています。';try{const message=await testNotificationDisplay();if(result?.isConnected)result.textContent=message;}catch(error){if(result?.isConnected)result.textContent=error.message;throw error;}});
       case 'retry-notifications':return notificationTask(node,()=>notificationRuntime.retry());
       case 'stop-notifications':return confirmAction('この端末の通知を停止','この端末のすべての通知予約を取り消します。通信できない場合は取消が保留され、通知が届くことがあります。',async()=>{
-        await commit(s=>({...s,checklists:s.checklists.map(list=>({...list,notificationEnabled:false}))}));await notificationRuntime.disable();
+        await commit(s=>({...s,checklists:s.checklists.map(list=>({...list,notificationEnabled:false})),...(s.managementLists?{managementLists:s.managementLists.map(list=>({...list,...(list.notificationEnabled!==undefined?{notificationEnabled:false}:{})}))}:{})}));await notificationRuntime.disable();
       },'停止する');
       case 'update-app':return pwa.apply();
       case 'check-notification-connection':return checkNotificationConnection(node);
@@ -409,7 +423,7 @@ try {
     const expired=domain.expiredChecklistIds(state);if(expired.length)state=store.save(domain.removeChecklists(state,expired),state.revision);
   };
   if(navigator.locks)await navigator.locks.request('tempalist:data',initialize);else initialize();
-  notificationRuntime=createNotificationRuntime({storage:localStorage,api:notificationApi,device:createBrowserDevice(),readLists:()=>store.read().checklists,onChange:updateNotificationStatus});
+  notificationRuntime=createNotificationRuntime({storage:localStorage,api:notificationApi,device:createBrowserDevice(),readLists:()=>notificationSources(store.read()),onChange:updateNotificationStatus});
   route();
   const reminderId=new URL(location.href).searchParams.get('reminderId');
   if(reminderId){history.replaceState(null,'',location.pathname+location.hash);openReminder(reminderId);}

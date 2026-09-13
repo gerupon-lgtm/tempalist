@@ -122,5 +122,5 @@ export function createNotificationRuntime({storage,api,device,readLists,now=Date
   return {recordedAt:new Date(now()).toISOString(),permission:device.permission(),registered:Boolean(s.device),pending:s.outbox.length+lifecycleOperations.length,lifecycleOperations,
    reservations:s.maps.map(m=>{const op=s.outbox.find(o=>o.reminderId===m.reminderId);return {reminderId:m.reminderId,slotKey:m.slotKey,scheduledAt:new Date(m.scheduledAt).toISOString(),state:op?(op.blocked?'stopped':'pending'):'no-pending-operation'};}),events:diagnostics.read()};
  }
- return {sync,enable,disable,retry,status,diagnosticReport,findChecklist:id=>read().maps.find(m=>m.reminderId===id)?.checklistId,dispose(){disposed=true;clearTimeout(timer);}};
+ return {sync,enable,disable,retry,status,diagnosticReport,findChecklist:id=>read().maps.find(m=>m.reminderId===id&&!m.managementListId)?.checklistId,findTarget:id=>{const map=read().maps.find(m=>m.reminderId===id);return map?(map.managementListId?{kind:'management',listId:map.managementListId,itemId:map.checklistId}:{kind:'checklist',listId:map.checklistId}):null;},dispose(){disposed=true;clearTimeout(timer);}};
 }

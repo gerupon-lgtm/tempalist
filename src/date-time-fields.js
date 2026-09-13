@@ -22,6 +22,12 @@ export function deadlineForm(entity={dueAt:null,dueHasTime:false}){
  const {date,time}=deadlineFields(entity.dueAt,entity.dueHasTime);
  return `<div class="form-grid deadline-fields">${inputField('date','期限の日付',date.replaceAll('-','/'),'2026/09/10','カレンダーを開く')}${inputField('time','時刻',time,'09:00','時計を開く')}</div><p id="deadline-input-help" class="secondary-text">数字を入力すると /・: を補います。右端のアイコンからも選べます。時刻省略時は09:00です。${e(getTimeZone())}</p>`;
 }
+export function expiryDateForm(value=null){
+ return inputField('date','消費期限（任意）',(value??'').replaceAll('-','/'),'YYYY/MM/DD','カレンダーを開く')+'<p id="deadline-input-help" class="secondary-text">未入力なら期限なしです。数字を入力すると / を補います。</p>';
+}
+export function expiryTimeForm(value='09:00'){
+ return inputField('time','通知時刻',value,'09:00','時計を開く')+`<p id="deadline-input-help" class="secondary-text">すべての管理リストで共通です。前日・当日にこの時刻で通知します。${e(getTimeZone())}</p>`;
+}
 const pickerBindings=new WeakMap();
 export function bindPickers(root){
  pickerBindings.get(root)?.();

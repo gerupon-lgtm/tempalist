@@ -1,3 +1,4 @@
+import {expiryTime} from './expiry.js';
 import {sanitizeManagementLists} from './management-domain.js';
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const UTC_ISO_PATTERN = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.(\d{1,3}))?Z$/;
@@ -241,10 +242,11 @@ export function emptyState() {
 
 export function validateState(value) {
   const source = requireObject(value, 'データ');
-  if (![1,2].includes(source.schemaVersion)) fail('未対応のデータ形式です');
+  if (![1,2,3].includes(source.schemaVersion)) fail('未対応のデータ形式です');
   if(source.schemaVersion===1&&source.managementLists!==undefined) fail('管理リストには新版のデータ形式が必要です');
   if (!Number.isInteger(source.revision) || source.revision < 0) fail('リビジョンが不正です');
   if (!Array.isArray(source.templates) || !Array.isArray(source.checklists)) fail('保存データが不正です');
+  if(source.schemaVersion<3&&(source.settings?.expiryNotificationTime!==undefined||(source.managementLists??[]).some(list=>list.notificationEnabled!==undefined||list.items?.some(item=>item.expiryDate!==undefined))))fail('消費期限には新版のデータ形式が必要です');
   const templates = source.templates.map(sanitizeTemplate);
   const checklists = source.checklists.map(sanitizeChecklist);
   uniqueIds(templates, 'テンプレート');
@@ -254,11 +256,11 @@ export function validateState(value) {
   return {
     schemaVersion: source.schemaVersion,
     ...(source.supplySamplesAdded===true?{supplySamplesAdded:true}:{}),
-    ...(source.schemaVersion===2?{managementLists:sanitizeManagementLists(source.managementLists)}:{}),
+    ...(source.schemaVersion>=2?{managementLists:sanitizeManagementLists(source.managementLists)}:{}),
     revision: source.revision,
     templates,
     checklists,
-    settings: { completedRetention: settings.completedRetention },
+    settings: { completedRetention: settings.completedRetention,...(settings.expiryNotificationTime!==undefined?{expiryNotificationTime:expiryTime(settings.expiryNotificationTime)}:{}) },
   };
 }
 

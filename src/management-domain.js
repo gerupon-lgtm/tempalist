@@ -1,3 +1,4 @@
+import {expiryDate} from './expiry.js';
 // Persistent management items are the source of truth for the shared action list.
 const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 function fail(message){throw new Error(message);}
@@ -17,15 +18,15 @@ export function sanitizeManagementLists(value){
   const list=object(raw);if(!Array.isArray(list.items))fail('管理項目が不正です');
   const items=list.items.map(rawItem=>{
    const item=object(rawItem);if(!Number.isSafeInteger(item.revision)||item.revision<0)fail('管理項目の版が不正です');
-   return {id:id(item.id),label:text(item.label,'項目名'),note:note(item.note),needsAction:bool(item.needsAction),lastCompletedAt:item.lastCompletedAt===null?null:date(item.lastCompletedAt),revision:item.revision};
+   return {...(item.expiryDate!==undefined?{expiryDate:expiryDate(item.expiryDate)}:{}),id:id(item.id),label:text(item.label,'項目名'),note:note(item.note),needsAction:bool(item.needsAction),lastCompletedAt:item.lastCompletedAt===null?null:date(item.lastCompletedAt),revision:item.revision};
   });
   unique(items);assertUniqueNames(items);
-  return {id:id(list.id),name:text(list.name,'管理リスト名'),sourceTemplateId:list.sourceTemplateId===null?null:id(list.sourceTemplateId),orderLocked:bool(list.orderLocked),items,createdAt:date(list.createdAt),updatedAt:date(list.updatedAt)};
+  return {...(list.notificationEnabled!==undefined?{notificationEnabled:bool(list.notificationEnabled)}:{}),id:id(list.id),name:text(list.name,'管理リスト名'),sourceTemplateId:list.sourceTemplateId===null?null:id(list.sourceTemplateId),orderLocked:bool(list.orderLocked),items,createdAt:date(list.createdAt),updatedAt:date(list.updatedAt)};
  });unique(lists);unique(lists.flatMap(list=>list.items));return lists;
 }
 export const managementLists=state=>sanitizeManagementLists(state.managementLists??[]);
 export const actionItems=state=>managementLists(state).flatMap(list=>list.items.filter(item=>item.needsAction).map(item=>({listId:list.id,listName:list.name,item})));
-function save(state,lists){return {...state,schemaVersion:2,managementLists:sanitizeManagementLists(lists)};}
+function save(state,lists){return {...state,schemaVersion:Math.max(state.schemaVersion,2),managementLists:sanitizeManagementLists(lists)};}
 function change(state,listId,mutate,now){
  const lists=managementLists(state),list=lists.find(list=>list.id===listId);if(!list)fail('管理リストが見つかりません');
  const updated={...mutate(list),updatedAt:date(now)};
@@ -46,11 +47,12 @@ export function createManagementList(state,{name,sourceTemplateId=null},now=new 
  return save(state,[...managementLists(state),{id:crypto.randomUUID(),name:text(name,'管理リスト名'),sourceTemplateId,orderLocked:template?.defaultOrderLocked??false,items,createdAt:date(now),updatedAt:now}]);
 }
 export function updateManagementList(state,listId,patch,now=new Date().toISOString()){
- if(Object.keys(patch).some(key=>!['name','orderLocked'].includes(key)))fail('変更できない管理データです');
- return change(state,listId,list=>({...list,...patch}),now);
+ if(Object.keys(patch).some(key=>!['name','orderLocked','notificationEnabled'].includes(key)))fail('変更できない管理データです');
+ return change(Object.hasOwn(patch,'notificationEnabled')?{...state,schemaVersion:3}:state,listId,list=>({...list,...patch}),now);
 }
 export function saveManagementItem(state,listId,itemId,value,expectedRevision,now=new Date().toISOString()){
- const patch={label:text(value.label,'項目名'),note:note(value.note??'')};
+ const patch={label:text(value.label,'項目名'),note:note(value.note??''),...(Object.hasOwn(value,'expiryDate')?{expiryDate:expiryDate(value.expiryDate)}:{})};
+ if(Object.hasOwn(patch,'expiryDate'))state={...state,schemaVersion:3};
  if(itemId)return itemChange(state,listId,itemId,expectedRevision,item=>({...item,...patch}),now);
  return change(state,listId,list=>({...list,items:[...list.items,{id:crypto.randomUUID(),...patch,needsAction:false,lastCompletedAt:null,revision:0}]}),now);
 }
@@ -61,15 +63,15 @@ export function completeManagementItem(state,listId,itemId,expectedRevision,now=
  let undo;
  const next=itemChange(state,listId,itemId,expectedRevision,item=>{
   if(!item.needsAction)fail('この項目は対応済みです');
-  undo={listId,itemId,revision:item.revision+1,previousCompletedAt:item.lastCompletedAt};
-  return {...item,needsAction:false,lastCompletedAt:date(now)};
+  undo={listId,itemId,revision:item.revision+1,previousCompletedAt:item.lastCompletedAt,...(item.expiryDate!==undefined?{previousExpiryDate:item.expiryDate}:{})};
+  return {...item,needsAction:false,lastCompletedAt:date(now),...(item.expiryDate!==undefined?{expiryDate:null}:{})};
  },now);
  return {state:next,undo};
 }
 export function undoManagementCompletion(state,undo,now=new Date().toISOString()){
  return itemChange(state,undo.listId,undo.itemId,undo.revision,item=>{
   if(item.needsAction)fail('項目が変更されています。元に戻せません。');
-  return {...item,needsAction:true,lastCompletedAt:undo.previousCompletedAt};
+  return {...item,needsAction:true,lastCompletedAt:undo.previousCompletedAt,...(undo.previousExpiryDate!==undefined?{expiryDate:undo.previousExpiryDate}:{})};
  },now);
 }
 export function deleteManagementItem(state,listId,itemId,expectedRevision,now=new Date().toISOString()){

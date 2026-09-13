@@ -10,13 +10,13 @@ function shared(value) {
 }
 export function exportBackup(state, now=new Date().toISOString()) {
   const {schemaVersion,templates,checklists,settings,managementLists}=validateState(state);
-  return JSON.stringify({schemaVersion,exportedAt:now,templates,checklists,settings,...(schemaVersion===2?{managementLists}:{})},null,2);
+  return JSON.stringify({schemaVersion,exportedAt:now,templates,checklists,settings,...(schemaVersion>=2?{managementLists}:{})},null,2);
 }
 export function parseTransfer(text) {
   let value;
   try { value=JSON.parse(text); } catch { throw new Error('JSONファイルを読み取れません。'); }
-  if (!value || ![1,2].includes(value.schemaVersion)) throw new Error('対応していないデータの版です。取り込みを中止しました。');
-  if(value.schemaVersion===2&&value.kind!==undefined&&value.kind!=='backup')throw new Error('新版の形式は全体バックアップ用です。');
+  if (!value || ![1,2,3].includes(value.schemaVersion)) throw new Error('対応していないデータの版です。取り込みを中止しました。');
+  if(value.schemaVersion>=2&&value.kind!==undefined&&value.kind!=='backup')throw new Error('新版の形式は全体バックアップ用です。');
   if (value.kind === 'template') return shared(value);
   if (value.kind === 'checklist-record') return {...validateState({...emptyState(),checklists:[value.checklist]}),kind:'backup'};
   if (value.kind !== undefined && value.kind !== 'backup') throw new Error('データの種類が正しくありません。');
@@ -27,8 +27,8 @@ export function importBackup(destination, value) {
   const ids=new Map(imported.templates.map(t=>[t.id,crypto.randomUUID()]));
   const templates=imported.templates.map(t=>({...t,id:ids.get(t.id),items:t.items.map(i=>({...i,id:crypto.randomUUID()}))}));
   const checklists=imported.checklists.map(c=>({...c,id:crypto.randomUUID(),sourceTemplateId:ids.get(c.sourceTemplateId) ?? null,notificationEnabled:false,...(c.receivedFrom?{receivedFrom:{...c.receivedFrom,direct:false}}:{}),items:c.items.map(i=>({...i,id:crypto.randomUUID()}))}));
-  const managementLists=(imported.managementLists??[]).map(list=>({...list,id:crypto.randomUUID(),sourceTemplateId:ids.get(list.sourceTemplateId)??null,items:list.items.map(item=>({...item,id:crypto.randomUUID(),revision:0}))}));
-  return {...destination,...(destination.schemaVersion===2||imported.schemaVersion===2?{schemaVersion:2,managementLists:[...(destination.managementLists??[]),...managementLists]}:{}),templates:[...destination.templates,...templates],checklists:[...destination.checklists,...checklists]};
+  const managementLists=(imported.managementLists??[]).map(list=>({...list,...(list.notificationEnabled!==undefined?{notificationEnabled:false}:{}),id:crypto.randomUUID(),sourceTemplateId:ids.get(list.sourceTemplateId)??null,items:list.items.map(item=>({...item,id:crypto.randomUUID(),revision:0}))}));
+  return {...destination,...(destination.schemaVersion>=2||imported.schemaVersion>=2?{schemaVersion:Math.max(destination.schemaVersion,imported.schemaVersion),managementLists:[...(destination.managementLists??[]),...managementLists]}:{}),templates:[...destination.templates,...templates],checklists:[...destination.checklists,...checklists]};
 }
 export function shareTemplate(template, origin=PUBLIC_ORIGIN) {
   const data=shared(template), json=JSON.stringify(data,null,2);

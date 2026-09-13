@@ -1,3 +1,4 @@
+import {expiryDateForm,bindPickers} from './date-time-fields.js';
 import * as model from './management-domain.js';
 import {escapeHTML as e,icon,field,openDialog,toast} from './ui.js';
 import {heading,labelUnits} from './views.js';
@@ -10,7 +11,7 @@ const confirmDeletion=(title,body,onSubmit)=>openDialog(title,body,{submit:'削�
 const findList=(state,id)=>(state.managementLists??[]).find(list=>list.id===id);
 const unchanged=list=>state=>JSON.stringify(findList(state,list.id))===JSON.stringify(list);
 
-export function createManagementUI({main,getState,commit,go,render}){
+export function createManagementUI({main,getState,commit,go,render,enableNotifications=async()=>{}}){
  let undo=null,busy=false;
  function undoNotice(){
   if(!undo)return '';
@@ -30,9 +31,10 @@ export function createManagementUI({main,getState,commit,go,render}){
  function detail(list){
   return `<a class="back" href="#/management">${icon('back',16)} 管理一覧に戻る</a>`+
    heading(list.name,'不足・対応が必要なものにチェックしてください。',button('edit-list','編集','detail-edit'),'detail-heading')+
+   `<div class="management-notification"><span>消費期限の通知：${list.notificationEnabled?'ON':'OFF'}</span>${button('notifications','通知を設定')}</div>`+
    `<a class="management-action-shortcut" href="#/actions">対応リストを見る（全体 ${model.actionItems(getState()).length}件） ${icon('arrow',16)}</a>`+undoNotice()+
    `<section class="order-lock-setting"><div><strong>並び順ロック</strong><p>${list.orderLocked?'並べ替えを防ぎます。チェック・編集はそのまま使えます。':'カードの長押しや↑↓で並べ替えできます。'}</p></div>${button('lock',`<span class="switch-track" aria-hidden="true"></span><span>${list.orderLocked?'ON':'OFF'}</span>`,'order-lock-switch',`role="switch" aria-label="並び順ロック" aria-checked="${list.orderLocked}"`)}</section>`+
-   `<ol class="items management-items">${list.items.map((item,index)=>`<li class="item-row ${list.orderLocked?'':'reorderable'} ${item.needsAction?'needs-action':''}" data-item="${item.id}" data-list="${list.id}" data-index="${index}"><label class="row-check"><input type="checkbox" data-management-check="need" data-revision="${item.revision}" aria-label="${e(item.label)}を要対応にする" ${item.needsAction?'checked':''}></label><div class="item-copy"><span class="item-label" data-label-units="${labelUnits(item.label)}">${e(item.label)}</span>${item.note?`<span class="item-note">${e(item.note)}</span>`:''}<small class="management-last">前回対応：${item.lastCompletedAt?e(formatDateTime(item.lastCompletedAt)):'未記録'}</small></div>${controls(list,item,index)}</li>`).join('')||'<li class="empty-state">項目を追加してください。</li>'}</ol>`+
+   `<ol class="items management-items">${list.items.map((item,index)=>`<li class="item-row ${list.orderLocked?'':'reorderable'} ${item.needsAction?'needs-action':''}" data-item="${item.id}" data-list="${list.id}" data-index="${index}"><label class="row-check"><input type="checkbox" data-management-check="need" data-revision="${item.revision}" aria-label="${e(item.label)}を要対応にする" ${item.needsAction?'checked':''}></label><div class="item-copy"><span class="item-label" data-label-units="${labelUnits(item.label)}">${e(item.label)}</span>${item.note?`<span class="item-note">${e(item.note)}</span>`:''}${item.expiryDate?`<small class="management-expiry">消費期限：${e(item.expiryDate.replaceAll('-','/'))}</small>`:''}<small class="management-last">前回対応：${item.lastCompletedAt?e(formatDateTime(item.lastCompletedAt)):'未記録'}</small></div>${controls(list,item,index)}</li>`).join('')||'<li class="empty-state">項目を追加してください。</li>'}</ol>`+
    button('add-item',`${icon('plus',18)} 項目を追加`,'add-item')+`<div class="detail-bottom">${button('delete-list','管理リストを削除','danger-link')}</div>`;
  }
  function actions(){
@@ -52,7 +54,8 @@ export function createManagementUI({main,getState,commit,go,render}){
   };
  }
  function editItem(list,item){
-  openDialog(item?'管理項目を編集':'管理項目を追加',field('項目名',input('label',item?.label??''))+field('メモ',`<textarea name="note">${e(item?.note??'')}</textarea>`),{lockWhileSaving:true,onSubmit:form=>commit(state=>model.saveManagementItem(state,list.id,item?.id,{label:form.get('label'),note:form.get('note')},item?.revision),unchanged(list))});
+  const dialog=openDialog(item?'管理項目を編集':'管理項目を追加',field('項目名',input('label',item?.label??''))+field('メモ',`<textarea name="note">${e(item?.note??'')}</textarea>`)+expiryDateForm(item?.expiryDate),{lockWhileSaving:true,onSubmit:form=>commit(state=>model.saveManagementItem(state,list.id,item?.id,{label:form.get('label'),note:form.get('note'),expiryDate:form.get('date')},item?.revision),unchanged(list))});
+  bindPickers(dialog);
  }
  async function run(task){if(busy)return;busy=true;try{await task();}catch(error){toast(error.message);}finally{busy=false;}}
  main.addEventListener('change',event=>{
@@ -78,6 +81,13 @@ export function createManagementUI({main,getState,commit,go,render}){
     if(!undo)return;const token=undo;await commit(state=>model.undoManagementCompletion(state,token));undo=null;render();toast('対応前の状態に戻しました');return;
    }
    if(!list)throw new Error('管理リストが見つかりません');
+   if(action==='notifications')return openDialog('消費期限の通知',`<label class="default-lock-field"><input type="checkbox" name="enabled" ${list.notificationEnabled?'checked':''}>この管理リストの通知を受け取る</label><p>期限がある未消費の項目を、前日・当日の ${e(getState().settings.expiryNotificationTime??'09:00')} に通知します。時刻は設定画面で共通設定できます。</p><p>通知には項目名などの内容を表示しません。過ぎた通知時刻の分は送信しません。</p><p data-notification-status></p>`,{submit:'保存する',lockWhileSaving:true,onSubmit:async form=>{
+    const enabled=form.has('enabled');
+    if(!unchanged(list)(getState()))throw new Error('別の画面で更新されました。画面を開き直してください。');
+    if(enabled)await enableNotifications();
+    await commit(state=>model.updateManagementList(state,list.id,{notificationEnabled:enabled}),unchanged(list));
+    toast('通知設定を保存しました。予約の同期状況は設定画面で確認できます。');
+   }});
    if(action==='edit-list')return openDialog('管理リストを編集',field('管理リスト名',input('name',list.name)),{lockWhileSaving:true,onSubmit:form=>commit(state=>model.updateManagementList(state,list.id,{name:form.get('name')}),unchanged(list))});
    if(action==='add-item'||action==='edit-item')return editItem(list,item);
    if(action==='lock')return commit(state=>model.updateManagementList(state,list.id,{orderLocked:!list.orderLocked}),unchanged(list));
