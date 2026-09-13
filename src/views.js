@@ -27,7 +27,7 @@ export function lists(state,tab) {
   const pendingActions=actionItems(state).length;
   const active=state.checklists.filter(c=>c.status==='active'),settled=state.checklists.filter(c=>c.status==='settled');
   const shown=tab==='active'?active.sort((a,b)=>(a.dueAt??'z').localeCompare(b.dueAt??'z')):settled.sort((a,b)=>b.settledAt.localeCompare(a.settledAt));
-  return heading('いつもの段取りを、ひとつずつ。','今日の確認も、次の準備も。',button('new-list','リストを作る','primary'))+
+  return heading('いつもの段取りを、ひとつずつ。','今日の確認も、次の準備も。',button('new-list','リストを作る','primary'),'collection-heading')+
     `<div class="tabs" role="tablist" aria-label="リストの状態">${['active','settled'].map((s,i)=>button('list-tab',`${i?'完了':'進行中'} <span class="count">${i?settled.length:active.length}</span>`,'',`role="tab" aria-selected="${s===tab}" data-value="${s}"`)).join('')}</div>`+
     (shown.length?`<div class="list-stack">${shown.map(listCard).join('')}</div>`:`<div class="empty-state"><div class="empty-mark">${icon('list',33)}</div><h2>${tab==='active'?'いま、進行中のリストはありません':'完了したリストがここに並びます'}</h2><p>${tab==='active'?'テンプレートから、または空のリストから。必要な確認だけを、手元に。':'チェックを終えたら「完了を確定する」で保存できます。'}</p>${button('new-list','リストを作る','primary')}</div>`)+
     (pendingActions?`<section class="list-stack list-actions-entry" aria-label="管理の対応リスト"><a class="list-card" href="#/actions"><div class="card-copy"><h2>対応リスト</h2><span class="meta-line">管理リストの要対応 ${pendingActions}件</span></div>${icon('arrow',18)}</a></section>`:'')+
@@ -35,7 +35,7 @@ export function lists(state,tab) {
 }
 export function templates(state,tab) {
   const shown=state.templates.filter(t=>t.status===tab);
-  return heading('テンプレート','繰り返す段取りを、自分の型に。',button('new-template','新しく作る','primary'))+
+  return heading('テンプレート','繰り返す段取りを、自分の型に。',button('new-template','新しく作る','primary'),'collection-heading')+
     `<div class="tabs" role="tablist" aria-label="テンプレートの状態">${Object.entries(statusName).map(([s,n])=>button('template-tab',`${n} <span class="count">${state.templates.filter(t=>t.status===s).length}</span>`,'',`role="tab" aria-selected="${s===tab}" data-value="${s}"`)).join('')}</div>`+
     `<div class="list-stack">${shown.map(t=>`<a class="list-card" href="#/template/${t.id}"><div class="card-copy"><h2>${e(t.name)}</h2><span class="meta-line">${t.items.length}項目 · 更新 ${e(formatDateTime(t.updatedAt,{dateOnly:true}))}</span></div>${icon('arrow')}</a>`).join('')||`<div class="empty-state"><h2>${statusName[tab]}のテンプレートはありません</h2>${button('new-template','テンプレートを作る','primary')}</div>`}</div>`;
 }

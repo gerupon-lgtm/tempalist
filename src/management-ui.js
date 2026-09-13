@@ -20,9 +20,9 @@ export function createManagementUI({main,getState,commit,go,render}){
  }
  function overview(){
   const lists=getState().managementLists??[],count=model.actionItems(getState()).length;
-  return heading('管理','不足や必要な対応を、ひとつに。',button('new','管理リストを作る','primary'))+
+  return heading('管理','不足や必要な対応を、ひとつに。',button('new','管理リストを作る','primary'),'collection-heading')+
    `<a class="list-card management-actions-link" href="#/actions"><div class="card-copy"><h2>対応リスト</h2><p class="secondary-text">すべての管理リストから集めています</p></div><span class="badge">要対応 ${count}件</span>${icon('arrow')}</a>`+
-   undoNotice()+`<h2 class="management-section-title">管理リスト</h2><div class="list-stack">${lists.map(list=>`<a class="list-card" href="#/management/${list.id}"><div class="card-copy"><h2>${e(list.name)}</h2><span class="secondary-text">${list.items.length}項目 · 要対応 ${list.items.filter(item=>item.needsAction).length}件</span></div>${icon('arrow')}</a>`).join('')||'<div class="empty-state"><h2>管理リストを作りましょう</h2><p>冷蔵庫や猫用品など、分けて管理できます。<br>いつものテンプレートも使えます。</p></div>'}</div>`;
+   undoNotice()+`<h2 class="management-section-title">管理リスト</h2><div class="list-stack">${lists.map(list=>`<a class="list-card" href="#/management/${list.id}"><div class="card-copy"><h2>${e(list.name)}</h2><span class="secondary-text">${list.items.length}項目 · 要対応 ${list.items.filter(item=>item.needsAction).length}件</span></div>${icon('arrow')}</a>`).join('')||'<div class="empty-state"><h2>管理リストを作りましょう</h2><p>食品や猫用品など、分けて管理できます。<br>いつものテンプレートも使えます。</p></div>'}</div>`;
  }
  function controls(list,item,index){
   return `<div class="row-controls"><details class="item-menu"><summary aria-label="${e(item.label)}の操作">⋯</summary><div class="menu-actions">${button('edit-item','編集')}${button('delete-item','削除','danger')}</div></details>${list.orderLocked?'':`<div class="row-stepper">${button('up',icon('up',18),'step-button',`aria-label="上へ" ${index===0?'disabled':''}`)}${button('down',icon('down',18),'step-button',`aria-label="下へ" ${index===list.items.length-1?'disabled':''}`)}</div>`}</div>`;
