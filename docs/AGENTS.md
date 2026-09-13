@@ -5,7 +5,7 @@
 - 要件定義書: `要件定義書_テンパリストではない.md`（v1.14）が正典。仕様の疑義はこれを見る
 - 詳細設計: `docs/data-model.md` / `docs/screens.md` / `docs/api-design.md` / `docs/tasks.md`
 - 実装順: `docs/tasks.md` の T-01 から順に進める
-- サンプル5種の項目: `docs/sample-templates.md`
+- サンプル9種の項目: `docs/sample-templates.md`
 - 通知基盤のRegistry登録完了。v0.2.0で6API・端末登録・Outbox・予約取消・SWを実装済み。公開OriginのGET/CORS成功。ローカルOriginは未許可。実機配送チェックはdocs/notification-verification.md。
 
 ## 技術スタック
@@ -83,3 +83,5 @@ npm run package:site # _siteに配信対象だけ準備。公開操作は行わ�
 - v0.4.3のPush診断履歴だけはSWからlocalStorageを使えないため専用Cache Storageへ保存する。業務データは従来どおりlocalStorageのみ。診断は日時・予約ID・成否など許可項目だけの最大100件とし、受信・表示処理を妨げない。
 
 - v0.5.0: 管理リストはschemaVersion:2のmanagementListsに保存する。形式1は管理作成まで維持し、新版データを旧版へ読み飛ばして上書きさせない。共通対応リストはneedsActionから導出し、通知・期限・あとキュー連携を追加しない。対応完了・取り消しは項目revisionを照合して状態と前回日時を一括保存。詳細は連動リスト仕様.md。
+
+- v0.5.1: 管理向けサンプル4種を既存利用者にも一度だけ追加する。同名テンプレートは上書きしない。固定IDと完了印で再投入を防ぎ、管理リストは自動作成しない。sample-templates.md参照。

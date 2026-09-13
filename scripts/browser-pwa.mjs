@@ -3,6 +3,8 @@ import {readFile} from 'node:fs/promises';
 import {execFileSync} from 'node:child_process';
 import {chromium} from 'playwright';
 import assert from 'node:assert/strict';
+import {validateState} from '../src/domain.js';
+import {SUPPLY_TEMPLATES} from '../src/samples.js';
 import {APP_VERSION} from '../src/version.js';
 import {emptyNotifications} from '../src/notification/queue.js';
 const notificationRaw=JSON.stringify({...emptyNotifications(),device:{deviceId:'11111111-1111-4111-8111-111111111111',deviceSecret:'test-only',appId:'tempalist',protocolVersion:2,createdAt:'2026-09-10T00:00:00.000Z'},subscription:{endpoint:'https://push.example/test',expirationTime:null,keys:{p256dh:'test-key',auth:'test-key'}}});
@@ -43,7 +45,13 @@ try{
  assert.ok(cached.includes(`APP_VERSION = '${APP_VERSION}'`),'new SW must not precache stale HTTP assets');
  await page.getByRole('link',{name:'設定',exact:true}).click();await page.getByRole('button',{name:'新しいバージョンに更新',exact:true}).click();
  await page.waitForFunction(version=>document.querySelector('#version')?.textContent==='v'+version,APP_VERSION);
- assert.equal(await page.evaluate(()=>localStorage.getItem('tempalist:data')),raw);
+ {
+  const current=await page.evaluate(()=>JSON.parse(localStorage.getItem('tempalist:data')));
+  const previous=validateState(JSON.parse(raw));
+  assert.equal(current.supplySamplesAdded,true);
+  assert.deepEqual(current.templates.slice(previous.templates.length).map(t=>t.name),SUPPLY_TEMPLATES.map(t=>t.name));
+  assert.deepEqual({...current,templates:current.templates.slice(0,previous.templates.length),revision:previous.revision,supplySamplesAdded:undefined},{...previous,supplySamplesAdded:undefined});
+ }
  assert.equal(await page.evaluate(()=>localStorage.getItem('tempalist:notification')),notificationRaw);
  assert.match(await page.locator('[data-notification-status]').textContent(),/この端末は登録済みです/);
  assert.equal(await page.getByRole('button',{name:'更新を確認する',exact:true}).isVisible(),true);
@@ -80,7 +88,13 @@ try{
  await page.locator('#update-status').filter({hasText:'完了しました'}).waitFor();
  await page.getByRole('link',{name:'アプリへ戻る',exact:true}).click();
  await page.waitForFunction(version=>document.querySelector('#version')?.textContent==='v'+version,APP_VERSION);
- assert.equal(await page.evaluate(()=>localStorage.getItem('tempalist:data')),raw);
+ {
+  const current=await page.evaluate(()=>JSON.parse(localStorage.getItem('tempalist:data')));
+  const previous=validateState(JSON.parse(raw));
+  assert.equal(current.supplySamplesAdded,true);
+  assert.deepEqual(current.templates.slice(previous.templates.length).map(t=>t.name),SUPPLY_TEMPLATES.map(t=>t.name));
+  assert.deepEqual({...current,templates:current.templates.slice(0,previous.templates.length),revision:previous.revision,supplySamplesAdded:undefined},{...previous,supplySamplesAdded:undefined});
+ }
  assert.equal(await page.evaluate(()=>localStorage.getItem('tempalist:notification')),notificationRaw);
  assert.deepEqual(errors,[]);await context.close();
  console.log('PWA: real v0.2.1 upgrade with stale HTTP cache, saved-data retention, install promotion, visible update banner, unsaved-input guard, offline reload and dedicated recovery route: OK');

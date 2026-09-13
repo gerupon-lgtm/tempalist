@@ -8,7 +8,7 @@ import {readChecklistLink,findLinkedChecklist,createLinkedChecklist} from './che
 import {APP_VERSION,COPYRIGHT} from './version.js';
 import {createChecklistRecord} from './checklist-record.js';
 import {createPwaController,installHelp} from './pwa.js';
-import {SAMPLE_TEMPLATES} from './samples.js';
+import {SAMPLE_TEMPLATES,SUPPLY_SAMPLE_KEY,addSupplySamples} from './samples.js';
 import {escapeHTML as e,openDialog,confirmAction,toast,download,field} from './ui.js';
 import * as view from './views.js';
 import {attachReorder} from './reorder.js';
@@ -399,6 +399,13 @@ try {
   const initialize=()=>{
     let initial=domain.emptyState();for(const template of SAMPLE_TEMPLATES)initial=domain.createTemplate(initial,template);
     state=store.initialize(initial);
+    try{
+      if(!state.supplySamplesAdded&&localStorage.getItem(SUPPLY_SAMPLE_KEY)!=='done'){
+        const expanded=addSupplySamples(state);
+        if(expanded!==state)state=store.save(expanded,state.revision);
+        localStorage.setItem(SUPPLY_SAMPLE_KEY,'done');
+      }
+    }catch{toast('追加サンプルを保存できませんでした。空き容量を確認して再起動してください。');}
     const expired=domain.expiredChecklistIds(state);if(expired.length)state=store.save(domain.removeChecklists(state,expired),state.revision);
   };
   if(navigator.locks)await navigator.locks.request('tempalist:data',initialize);else initialize();

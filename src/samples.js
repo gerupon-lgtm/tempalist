@@ -1,3 +1,4 @@
+import {createTemplate} from './domain.js';
 export const SAMPLE_TEMPLATES = [
   {
     "items": [
@@ -173,3 +174,24 @@ export const SAMPLE_TEMPLATES = [
     "name": "研究室の実験前チェック"
   }
 ];
+
+
+export const SUPPLY_SAMPLE_KEY='tempalist:supply-samples-v1';
+export const SUPPLY_TEMPLATES=[
+ {name:'食品',labels:['食パン','バター','ベーコン','たまご','ペットボトルお茶','ペットボトルコーヒー','炭酸水']},
+ {name:'猫用品',labels:['ドライフード','パウチフード','猫砂','ペットシート','猫用おやつ','消臭袋']},
+ {name:'日用品',labels:['洗濯洗剤','シャンプー','ボディソープ','食器用洗剤','トイレットペーパー','ティッシュペーパー']},
+ {name:'実験備品',labels:['使い捨て手袋','ピペットチップ','サンプルチューブ','試料ラベル','実験用ワイパー','チャック付き袋']},
+].map((entry,index)=>({id:`76a65815-1b81-41dc-8000-00000000000${index+1}`,name:entry.name,items:entry.labels.map(label=>({label,note:''}))}));
+
+export function addSupplySamples(state){
+ if(state.supplySamplesAdded)return state;
+ let next=state;
+ for(const sample of SUPPLY_TEMPLATES){
+  // Stable IDs also prevent a duplicate if saving the completion marker failed.
+  if(next.templates.some(template=>template.id===sample.id||template.name.trim()===sample.name))continue;
+  next=createTemplate(next,sample);
+  next={...next,templates:next.templates.map((template,index)=>index===next.templates.length-1?{...template,id:sample.id}:template)};
+ }
+ return {...next,supplySamplesAdded:true};
+}

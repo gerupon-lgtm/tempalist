@@ -253,6 +253,7 @@ export function validateState(value) {
   if (!RETENTIONS.has(settings.completedRetention)) fail('保持期間の設定が不正です');
   return {
     schemaVersion: source.schemaVersion,
+    ...(source.supplySamplesAdded===true?{supplySamplesAdded:true}:{}),
     ...(source.schemaVersion===2?{managementLists:sanitizeManagementLists(source.managementLists)}:{}),
     revision: source.revision,
     templates,
