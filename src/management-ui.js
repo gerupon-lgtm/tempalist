@@ -1,3 +1,5 @@
+import {createAllocationList} from './allocation-domain.js';
+import {allocationFields,allocationSummary} from './allocation-ui.js';
 import {expiryDateForm,bindPickers} from './date-time-fields.js';
 import * as model from './management-domain.js';
 import {escapeHTML as e,icon,field,openDialog,toast} from './ui.js';
@@ -20,10 +22,11 @@ export function createManagementUI({main,getState,commit,go,render,enableNotific
   return `<aside class="management-undo" role="status"><span>「${e(undo.label)}」を対応済みにしました。</span>${button('undo','元に戻す')}</aside>`;
  }
  function overview(){
-  const lists=getState().managementLists??[],count=model.actionItems(getState()).length;
+  const allocations=getState().allocationLists??[],lists=getState().managementLists??[],count=model.actionItems(getState()).length;
   return heading('管理','不足や必要な対応を、ひとつに。',button('new','管理リストを作る','primary'),'collection-heading')+
    `<a class="list-card management-actions-link" href="#/actions"><div class="card-copy"><h2>対応リスト</h2><p class="secondary-text">すべての管理リストから集めています</p></div><span class="badge">要対応 ${count}件</span>${icon('arrow')}</a>`+
-   undoNotice()+`<h2 class="management-section-title">管理リスト</h2><div class="list-stack">${lists.map(list=>`<a class="list-card" href="#/management/${list.id}"><div class="card-copy"><h2>${e(list.name)}</h2><span class="secondary-text">${list.items.length}項目 · 要対応 ${list.items.filter(item=>item.needsAction).length}件</span></div>${icon('arrow')}</a>`).join('')||'<div class="empty-state"><h2>管理リストを作りましょう</h2><p>食品や猫用品など、分けて管理できます。<br>いつものテンプレートも使えます。</p></div>'}</div>`;
+   undoNotice()+(lists.length||!allocations.length?`<h2 class="management-section-title">管理リスト</h2><div class="list-stack">${lists.map(list=>`<a class="list-card" href="#/management/${list.id}"><div class="card-copy"><h2>${e(list.name)}</h2><span class="secondary-text">${list.items.length}項目 · 要対応 ${list.items.filter(item=>item.needsAction).length}件</span></div>${icon('arrow')}</a>`).join('')||'<div class="empty-state"><h2>管理リストを作りましょう</h2><p>食品や猫用品など、分けて管理できます。<br>いつものテンプレートも使えます。</p></div>'}</div>`:'')+
+   (allocations.length?`<h2 class="management-section-title">利用枠管理</h2><div class="list-stack">${allocations.map(list=>`<a class="list-card" href="#/allocation/${list.id}"><div class="card-copy"><h2>${e(list.name)}</h2><span class="meta-line">${allocationSummary(list)}</span></div>${icon('arrow')}</a>`).join('')}</div>`:'');
  }
  function controls(list,item,index){
   return `<div class="row-controls"><details class="item-menu"><summary aria-label="${e(item.label)}の操作">⋯</summary><div class="menu-actions">${button('edit-item','編集')}${button('delete-item','削除','danger')}</div></details>${list.orderLocked?'':`<div class="row-stepper">${button('up',icon('up',18),'step-button',`aria-label="上へ" ${index===0?'disabled':''}`)}${button('down',icon('down',18),'step-button',`aria-label="下へ" ${index===list.items.length-1?'disabled':''}`)}</div>`}</div>`;
@@ -44,10 +47,19 @@ export function createManagementUI({main,getState,commit,go,render,enableNotific
  }
  function newList(){
   const templates=getState().templates.filter(template=>template.status==='active');
-  const dialog=openDialog('管理リストを作る',field('テンプレート',`<select name="source" aria-label="テンプレート"><option value="">空から作る</option>${templates.map(template=>`<option value="${template.id}">${e(template.name)}</option>`).join('')}</select>`)+field('管理リスト名',input('name',''))+'<p class="secondary-text">項目・コメント・並び順ロックの初期値をコピーします。要対応チェックと前回対応日時は空で始まります。</p><p data-template-warning role="status"></p>',{submit:'作成する',lockWhileSaving:true,onSubmit:async form=>{
+  const mode=field('管理の種類','<select name="mode" aria-label="管理の種類"><option value="supply">補充・対応管理</option><option value="allocation">利用枠管理</option></select>');
+  const supply=field('テンプレート',`<select name="source" aria-label="テンプレート"><option value="">空から作る</option>${templates.map(template=>`<option value="${template.id}">${e(template.name)}</option>`).join('')}</select>`)+field('管理リスト名',input('name',''))+'<p class="secondary-text">項目・コメント・並び順ロックの初期値をコピーします。要対応チェックと前回対応日時は空で始まります。</p><p data-template-warning role="status"></p>';
+  const dialog=openDialog('管理リストを作る',mode+`<fieldset class="management-mode-fields" data-mode-fields="supply">${supply}</fieldset><fieldset class="management-mode-fields" data-mode-fields="allocation" hidden disabled>${allocationFields()}<p class="secondary-text">保有数から利用枠を用意します。使用中・空き数を自動集計し、解除後の割り当て履歴は残しません。</p></fieldset>`,{submit:'作成する',lockWhileSaving:true,onSubmit:async form=>{
+   if(form.get('mode')==='allocation'){
+    const saved=await commit(state=>createAllocationList(state,{name:form.get('allocationName'),quantity:Number(form.get('quantity'))}));
+    go('allocation/'+saved.allocationLists.at(-1).id);toast('利用枠管理を作成しました');return;
+   }
    const saved=await commit(state=>model.createManagementList(state,{name:form.get('name'),sourceTemplateId:form.get('source')||null}));
    go('management/'+saved.managementLists.at(-1).id);toast('管理リストを作成しました');
   }});
+  dialog.querySelector('[name=mode]').onchange=event=>{
+   for(const group of dialog.querySelectorAll('[data-mode-fields]'))group.disabled=group.hidden=group.dataset.modeFields!==event.target.value;
+  };
   dialog.querySelector('[name=source]').onchange=event=>{
    const template=templates.find(template=>template.id===event.target.value),warning=dialog.querySelector('[data-template-warning]');warning.textContent='';
    if(template){dialog.querySelector('[name=name]').value=template.name;try{model.assertUniqueNames(template.items);}catch(error){warning.textContent=error.message+' キャンセルしてテンプレートタブで修正してから、作り直してください。';}}

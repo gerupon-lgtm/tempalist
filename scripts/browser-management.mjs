@@ -30,7 +30,7 @@ try{
  const entry=page.locator('main a[href="#/actions"]');await entry.waitFor();assert.match(await entry.textContent(),/要対応 2件/);
  assert.ok(await entry.evaluate(el=>Boolean(el.compareDocumentPosition(document.querySelector('.template-start'))&Node.DOCUMENT_POSITION_FOLLOWING)));
  await page.locator('[data-action="list-tab"][data-value="settled"]').click();await entry.waitFor();
- await entry.click();await page.getByRole('heading',{name:'対応リスト',exact:true}).waitFor();assert.equal(await page.locator('[data-management-check=complete]').count(),2);
+ await entry.click();await page.locator('[data-management-check=complete]').first().waitFor();assert.equal(await page.locator('[data-management-check=complete]').count(),2);
  await page.getByRole('checkbox',{name:'自宅の日用品の洗剤を対応済みにする',exact:true}).click();await waitNeed(home.id,home.items[0].id,false);
  await button('元に戻す').waitFor();assert.equal(await page.locator('[data-management-check=complete]').count(),1);
  await button('元に戻す').click();await waitNeed(home.id,home.items[0].id,true);assert.equal((await saved()).managementLists[0].items[0].lastCompletedAt,null);

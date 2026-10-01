@@ -161,3 +161,12 @@ main>.collection-heading h1{font-size:clamp(1rem,4.6vw,1.25rem);margin-bottom:6p
 .management-notification{display:flex;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:8px;font-size:.8rem}
 .management-notification button{font-size:.8rem}
 .management-expiry{display:block;font-size:.8rem;margin-top:5px;color:var(--ink)}
+
+.management-mode-fields{margin:0;padding:0;border:0;min-width:0}
+.management-mode-fields[hidden]{display:none}
+.allocation-counts{padding:16px;margin-bottom:16px;border:1px solid var(--line);border-radius:14px;background:var(--surface);font-weight:600;overflow-wrap:anywhere}
+.allocation-used{background:var(--brand-soft)}
+.allocation-assignee{display:block;font-size:.9rem;white-space:pre-wrap;overflow-wrap:anywhere}
+.allocation-state{font-size:.75rem;color:var(--muted);flex-shrink:0}
+.allocation-pages{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:16px;font-size:.8rem}
+.allocation-pages span{min-width:0;overflow-wrap:anywhere}.allocation-pages button{flex-shrink:0}

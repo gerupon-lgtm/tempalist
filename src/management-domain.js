@@ -48,11 +48,11 @@ export function createManagementList(state,{name,sourceTemplateId=null},now=new 
 }
 export function updateManagementList(state,listId,patch,now=new Date().toISOString()){
  if(Object.keys(patch).some(key=>!['name','orderLocked','notificationEnabled'].includes(key)))fail('変更できない管理データです');
- return change(Object.hasOwn(patch,'notificationEnabled')?{...state,schemaVersion:3}:state,listId,list=>({...list,...patch}),now);
+ return change(Object.hasOwn(patch,'notificationEnabled')?{...state,schemaVersion:Math.max(state.schemaVersion,3)}:state,listId,list=>({...list,...patch}),now);
 }
 export function saveManagementItem(state,listId,itemId,value,expectedRevision,now=new Date().toISOString()){
  const patch={label:text(value.label,'項目名'),note:note(value.note??''),...(Object.hasOwn(value,'expiryDate')?{expiryDate:expiryDate(value.expiryDate)}:{})};
- if(Object.hasOwn(patch,'expiryDate'))state={...state,schemaVersion:3};
+ if(Object.hasOwn(patch,'expiryDate'))state={...state,schemaVersion:Math.max(state.schemaVersion,3)};
  if(itemId)return itemChange(state,listId,itemId,expectedRevision,item=>({...item,...patch}),now);
  return change(state,listId,list=>({...list,items:[...list.items,{id:crypto.randomUUID(),...patch,needsAction:false,lastCompletedAt:null,revision:0}]}),now);
 }
