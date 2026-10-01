@@ -26,10 +26,18 @@ try{
  await slot(1).click();await button('キャンセル').click();await closed();assert.equal(await slot(1).isChecked(),true);
  await slot(1).click();await button('解除する').click();await closed();assert.equal(await slot(1).isChecked(),false);assert.ok(!JSON.stringify((await saved()).allocationLists).includes('担当1'));
  await assign(1,'田中');
+ await button('枠1の割り当て先を編集').click();assert.equal(await page.getByLabel('割り当て先',{exact:true}).inputValue(),'田中');await button('キャンセル').click();await closed();
+ await button('枠1の割り当て先を編集').click();await page.getByLabel('割り当て先',{exact:true}).fill('山田のPC');await button('保存する').click();await closed();assert.equal(await slot(1).isChecked(),true);assert.match(await page.locator('.allocation-counts').textContent(),/使用中 8 ／ 空き 2/);
+ await page.reload();await button('枠1の割り当て先を編集').click();assert.equal(await page.getByLabel('割り当て先',{exact:true}).inputValue(),'山田のPC');await button('キャンセル').click();await closed();
+
  await edit(7);await page.getByRole('alert').filter({hasText:'先に使用を解除'}).waitFor();assert.equal((await saved()).allocationLists[0].quantity,10);
  await page.getByLabel('保有数',{exact:true}).fill('8');await button('保存する').click();await closed();assert.equal(await page.getByRole('checkbox').count(),8);
  assert.equal((await saved()).allocationLists[0].assignments.length,8);assert.match(await page.locator('.allocation-counts').textContent(),/空き 0/);
  await edit(12);await closed();assert.equal(await page.getByRole('checkbox').count(),12);assert.match(await page.locator('.allocation-counts').textContent(),/空き 4/);
+ const assignmentsBeforeSort=JSON.stringify((await saved()).allocationLists[0].assignments);
+ await page.getByLabel('利用枠の表示順',{exact:true}).selectOption('free');assert.equal(await page.getByRole('checkbox').first().isChecked(),false);assert.equal(await page.getByRole('checkbox').last().isChecked(),true);
+ await page.getByLabel('利用枠の表示順',{exact:true}).selectOption('used');assert.equal(await page.getByRole('checkbox').first().isChecked(),true);assert.equal(await page.getByRole('checkbox').last().isChecked(),false);assert.equal(JSON.stringify((await saved()).allocationLists[0].assignments),assignmentsBeforeSort);
+ await page.getByLabel('利用枠の表示順',{exact:true}).selectOption('slot');
  await route('management');await page.locator(`a[href="#/${path}"]`).waitFor();assert.match(await page.locator(`a[href="#/${path}"]`).textContent(),/使用中 8/);
  await route('lists');assert.equal(await page.locator('main a[href="#/actions"]').count(),0);
  await route(path);
@@ -41,6 +49,9 @@ try{
  await button('保存する').click();await page.getByRole('alert').filter({hasText:'別の画面'}).waitFor();assert.equal((await saved()).allocationLists[0].quantity,12);await button('キャンセル').click();await button('入力を破棄して閉じる').click();await closed();await other.close();
  // Large capacities remain usable without rendering or storing every vacant slot.
  await edit(1000);await closed();assert.equal(await page.getByRole('checkbox').count(),50);await button('次へ').click();await slot(51).waitFor();await assign(51,'営業部');assert.equal(await slot(51).isChecked(),true);
+ await page.getByLabel('利用枠の表示順',{exact:true}).selectOption('free');assert.equal(await page.getByRole('checkbox').count(),50);assert.equal(await page.getByRole('checkbox').first().getAttribute('aria-label'),'枠10の使用');assert.equal(await slot(51).count(),0);
+ await page.getByLabel('利用枠の表示順',{exact:true}).selectOption('used');assert.equal(await page.getByRole('checkbox').nth(9).getAttribute('aria-label'),'枠51の使用');assert.equal(await page.getByRole('checkbox').nth(10).getAttribute('aria-label'),'枠10の使用');
+
  await page.reload();await page.locator('.allocation-counts').waitFor();assert.equal(await page.getByRole('checkbox').count(),50);
  // Changing unrelated settings must not downgrade schema 4 or discard allocations.
  await route('settings');await button('通知時刻を変更').click();await page.getByLabel('通知時刻',{exact:true}).fill('1030');await button('保存する').click();await closed();assert.equal((await saved()).schemaVersion,4);

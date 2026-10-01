@@ -56,3 +56,13 @@ it('deletes only the requested allocation and preserves regular lists and manage
  let state=fixture();state=domain.createChecklist(state,{title:'残す'});const before=state.checklists;
  state=model.deleteAllocationList(state,list(state).id,list(state).revision);expect(state.allocationLists).toEqual([]);expect(state.checklists).toEqual(before);expect(state.schemaVersion).toBe(4);
 });
+
+it('edits current assignees without releasing occupancy and rejects stale or vacant edits',()=>{
+ let state=assign(assign(fixture(),1,'田中'),2,'PC2');const id=list(state).id,revision=list(state).revision;
+ const updated=model.updateAllocationAssignee(state,id,1,'  山田PC  ',revision);
+ expect(list(updated).assignments).toEqual([{slot:1,assignee:'山田PC'},{slot:2,assignee:'PC2'}]);expect(model.allocationCounts(list(updated))).toEqual({total:10,used:2,available:8});
+ expect(()=>model.updateAllocationAssignee(state,id,1,' ',revision)).toThrow();expect(()=>model.updateAllocationAssignee(state,id,3,'空き',revision)).toThrow();
+ expect(()=>model.updateAllocationAssignee(updated,id,1,'古い編集',revision)).toThrow('別の画面');
+ state=model.releaseAllocation(updated,id,1,list(updated).revision);expect(()=>model.updateAllocationAssignee(state,id,1,'復活不可',list(state).revision)).toThrow('空き');
+ expect(parseTransfer(exportBackup(updated)).allocationLists[0].assignments).toEqual(list(updated).assignments);
+});

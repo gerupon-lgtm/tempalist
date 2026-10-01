@@ -52,6 +52,13 @@ export function assignAllocation(state,id,slot,assignee,expectedRevision,now=new
   return {...list,assignments:[...list.assignments,{slot,assignee:label}]};
  },now);
 }
+export function updateAllocationAssignee(state,id,slot,assignee,expectedRevision,now=new Date().toISOString()){
+ const label=text(assignee,'割り当て先');
+ return change(state,id,expectedRevision,list=>{
+  if(!list.assignments.some(entry=>entry.slot===slot))fail('この枠は既に空きです');
+  return {...list,assignments:list.assignments.map(entry=>entry.slot===slot?{...entry,assignee:label}:entry)};
+ },now);
+}
 export function releaseAllocation(state,id,slot,expectedRevision,now=new Date().toISOString()){
  return change(state,id,expectedRevision,list=>{
   if(!list.assignments.some(entry=>entry.slot===slot))fail('この枠は既に空きです');
