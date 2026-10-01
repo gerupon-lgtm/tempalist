@@ -51,7 +51,7 @@ export function createManagementUI({main,getState,commit,go,render,enableNotific
   const supply=field('テンプレート',`<select name="source" aria-label="テンプレート"><option value="">空から作る</option>${templates.map(template=>`<option value="${template.id}">${e(template.name)}</option>`).join('')}</select>`)+field('管理リスト名',input('name',''))+'<p class="secondary-text">項目・コメント・並び順ロックの初期値をコピーします。要対応チェックと前回対応日時は空で始まります。</p><p data-template-warning role="status"></p>';
   const dialog=openDialog('管理リストを作る',mode+`<fieldset class="management-mode-fields" data-mode-fields="supply">${supply}</fieldset><fieldset class="management-mode-fields" data-mode-fields="allocation" hidden disabled>${allocationFields()}<p class="secondary-text">保有数から利用枠を用意します。使用中・空き数を自動集計し、解除後の割り当て履歴は残しません。</p></fieldset>`,{submit:'作成する',lockWhileSaving:true,onSubmit:async form=>{
    if(form.get('mode')==='allocation'){
-    const saved=await commit(state=>createAllocationList(state,{name:form.get('allocationName'),quantity:Number(form.get('quantity'))}));
+    const saved=await commit(state=>createAllocationList(state,{name:form.get('allocationName'),quantity:Number(form.get('quantity')),slotName:form.get('slotName')}));
     go('allocation/'+saved.allocationLists.at(-1).id);toast('利用枠管理を作成しました');return;
    }
    const saved=await commit(state=>model.createManagementList(state,{name:form.get('name'),sourceTemplateId:form.get('source')||null}));

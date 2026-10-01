@@ -15,7 +15,7 @@ export function exportBackup(state, now=new Date().toISOString()) {
 export function parseTransfer(text) {
   let value;
   try { value=JSON.parse(text); } catch { throw new Error('JSONファイルを読み取れません。'); }
-  if (!value || ![1,2,3,4].includes(value.schemaVersion)) throw new Error('対応していないデータの版です。取り込みを中止しました。');
+  if (!value || ![1,2,3,4,5].includes(value.schemaVersion)) throw new Error('対応していないデータの版です。取り込みを中止しました。');
   if(value.schemaVersion>=2&&value.kind!==undefined&&value.kind!=='backup')throw new Error('新版の形式は全体バックアップ用です。');
   if (value.kind === 'template') return shared(value);
   if (value.kind === 'checklist-record') return {...validateState({...emptyState(),checklists:[value.checklist]}),kind:'backup'};

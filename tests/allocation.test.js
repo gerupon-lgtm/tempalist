@@ -36,7 +36,7 @@ it('validates whole backup structure and quantity without creating unbounded arr
  expect(list(fixture(Number.MAX_SAFE_INTEGER)).assignments).toEqual([]);
  const state=fixture(),entry=list(state);for(const assignments of [[{slot:0,assignee:'A'}],[{slot:11,assignee:'A'}],[{slot:1,assignee:''}],[{slot:1,assignee:'A'},{slot:1,assignee:'B'}]])expect(()=>domain.validateState({...state,allocationLists:[{...entry,assignments}]})).toThrow();
  expect(()=>domain.validateState({...state,allocationLists:[{...entry,id:[entry.id]}]})).toThrow();
- expect(()=>domain.validateState({...state,schemaVersion:3})).toThrow();expect(()=>parseTransfer(JSON.stringify({...state,schemaVersion:5}))).toThrow();
+ expect(()=>domain.validateState({...state,schemaVersion:3})).toThrow();expect(()=>parseTransfer(JSON.stringify({...state,schemaVersion:6}))).toThrow();
 });
 it('backs up current assignments, imports separately and preserves destination settings and existing data',()=>{
  const original=assign(fixture(),3,'田中');const parsed=parseTransfer(exportBackup(original));const copied=importBackup(original,parsed);
@@ -45,11 +45,11 @@ it('backs up current assignments, imports separately and preserves destination s
  const legacy=importBackup(domain.emptyState(),parsed);expect(legacy.schemaVersion).toBe(4);expect(legacy.allocationLists).toHaveLength(1);
 });
 it('retains allocation format and assignments through ordinary and expiry management operations',()=>{
- let state=assign(fixture(),1,'A');const expected=list(state);
+ let state=assign(model.createAllocationList(domain.emptyState(),{name:'ソフト',quantity:10,slotName:'端末'}),1,'A');const expected=list(state);
  state=domain.createTemplate(state,{name:'食品',items:[{label:'パン'}]});state=domain.createChecklist(state,{title:'通常'});
  state=management.createManagementList(state,{name:'食品',sourceTemplateId:state.templates[0].id});const supplies=state.managementLists[0];
  state=management.updateManagementList(state,supplies.id,{notificationEnabled:true});state=management.saveManagementItem(state,supplies.id,supplies.items[0].id,{label:'パン',note:'',expiryDate:'2026-10-20'},0);
- expect(state.schemaVersion).toBe(4);expect(list(state)).toEqual(expected);expect(domain.validateState(state)).toEqual(state);
+ expect(state.schemaVersion).toBe(5);expect(list(state)).toEqual(expected);expect(domain.validateState(state)).toEqual(state);
  expect(notificationSources(state,'Asia/Tokyo').some(source=>source.id===expected.id)).toBe(false);expect(management.actionItems(state)).toEqual([]);
 });
 it('deletes only the requested allocation and preserves regular lists and management data',()=>{
@@ -65,4 +65,17 @@ it('edits current assignees without releasing occupancy and rejects stale or vac
  expect(()=>model.updateAllocationAssignee(updated,id,1,'古い編集',revision)).toThrow('別の画面');
  state=model.releaseAllocation(updated,id,1,list(updated).revision);expect(()=>model.updateAllocationAssignee(state,id,1,'復活不可',list(state).revision)).toThrow('空き');
  expect(parseTransfer(exportBackup(updated)).allocationLists[0].assignments).toEqual(list(updated).assignments);
+});
+
+it('stores editable slot names with legacy No fallback and safe backup round trips',()=>{
+ const legacy=fixture();expect(list(legacy).slotName).toBeUndefined();expect(legacy.schemaVersion).toBe(4);
+ let state=model.createAllocationList(domain.emptyState(),{name:'ソフト',quantity:10,slotName:' ライセンス '});expect(state.schemaVersion).toBe(5);expect(list(state).slotName).toBe('ライセンス');
+ state=assign(state,1,'PC1');const id=list(state).id,revision=list(state).revision;
+ const changed=model.updateAllocationList(state,id,{name:'ソフト',quantity:10,slotName:'端末'},revision);expect(list(changed).slotName).toBe('端末');expect(list(changed).assignments).toEqual(list(state).assignments);
+ expect(()=>model.updateAllocationList(changed,id,{name:'ソフト',quantity:10,slotName:'古い'},revision)).toThrow('別の画面');
+ const copied=importBackup(legacy,parseTransfer(exportBackup(changed)));expect(copied.schemaVersion).toBe(5);expect(copied.allocationLists[1].slotName).toBe('端末');
+ expect(importBackup(copied,domain.emptyState()).allocationLists).toEqual(copied.allocationLists);
+ expect(()=>domain.validateState({...changed,schemaVersion:4})).toThrow('新版');
+ for(const slotName of ['', ' ', 1, null, []])expect(()=>model.createAllocationList(domain.emptyState(),{name:'ソフト',quantity:1,slotName})).toThrow();
+ expect(domain.validateState(changed)).toEqual(changed);
 });

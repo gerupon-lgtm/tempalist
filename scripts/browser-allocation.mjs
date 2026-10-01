@@ -15,8 +15,12 @@ async function edit(quantity){await button('編集').click();await page.getByLab
 try{
  await route('management');await button('管理リストを作る').click();await page.getByLabel('管理の種類',{exact:true}).selectOption('allocation');
  assert.equal(await page.getByLabel('テンプレート',{exact:true}).isVisible(),false);
+ assert.equal(await page.getByLabel('番号の名称',{exact:true}).inputValue(),'No');await page.getByLabel('番号の名称',{exact:true}).fill('ライセンス');
  await page.getByLabel('対象名',{exact:true}).fill('ソフトウェアA');await page.getByLabel('保有数',{exact:true}).fill('10');await button('作成する').click();await closed();await page.locator('.allocation-counts').waitFor();
- const id=(await saved()).allocationLists[0].id,path='allocation/'+id;assert.equal((await saved()).schemaVersion,4);assert.equal(await page.getByRole('checkbox').count(),10);
+ const id=(await saved()).allocationLists[0].id,path='allocation/'+id;assert.equal((await saved()).schemaVersion,5);assert.equal(await page.getByRole('checkbox').count(),10);
+ assert.equal(await page.getByRole('checkbox',{name:'ライセンス1の使用',exact:true}).count(),1);
+ await page.getByRole('checkbox',{name:'ライセンス1の使用',exact:true}).click();assert.match(await page.locator('#dialog').textContent(),/ライセンス1/);await button('キャンセル').click();await closed();
+ await button('編集').click();assert.equal(await page.getByLabel('番号の名称',{exact:true}).inputValue(),'ライセンス');await page.getByLabel('番号の名称',{exact:true}).fill('No');await button('保存する').click();await closed();
  // Cancel a start: neither occupancy nor any name is persisted.
  await slot(1).click();await button('キャンセル').click();await closed();assert.equal(await slot(1).isChecked(),false);
  for(let n=1;n<=7;n++)await assign(n,'担当'+n);
@@ -26,6 +30,11 @@ try{
  await slot(1).click();await button('キャンセル').click();await closed();assert.equal(await slot(1).isChecked(),true);
  await slot(1).click();await button('解除する').click();await closed();assert.equal(await slot(1).isChecked(),false);assert.ok(!JSON.stringify((await saved()).allocationLists).includes('担当1'));
  await assign(1,'田中');
+ const beforeRename=JSON.stringify((await saved()).allocationLists[0].assignments);
+ await button('編集').click();await page.getByLabel('番号の名称',{exact:true}).fill('<img src=x>');await button('保存する').click();await closed();assert.equal(await page.locator('.allocation-items img').count(),0);
+ await page.getByRole('button',{name:'<img src=x>1の割り当て先を編集',exact:true}).click();assert.match(await page.locator('#dialog').textContent(),/<img src=x>1/);assert.equal(await page.locator('#dialog img').count(),0);await button('キャンセル').click();await closed();
+ await button('編集').click();await page.getByLabel('番号の名称',{exact:true}).fill('No');await button('保存する').click();await closed();assert.equal(JSON.stringify((await saved()).allocationLists[0].assignments),beforeRename);
+
  await button('No.1の割り当て先を編集').click();assert.equal(await page.getByLabel('割り当て先',{exact:true}).inputValue(),'田中');await button('キャンセル').click();await closed();
  await button('No.1の割り当て先を編集').click();await page.getByLabel('割り当て先',{exact:true}).fill('山田のPC');await button('保存する').click();await closed();assert.equal(await slot(1).isChecked(),true);assert.match(await page.locator('.allocation-counts').textContent(),/保有 10 ／ 使用中 8/);
  await page.reload();await button('No.1の割り当て先を編集').click();assert.equal(await page.getByLabel('割り当て先',{exact:true}).inputValue(),'山田のPC');await button('キャンセル').click();await closed();
@@ -53,11 +62,12 @@ try{
  await page.getByLabel('利用状況の表示順',{exact:true}).selectOption('used');assert.equal(await page.getByRole('checkbox').nth(9).getAttribute('aria-label'),'No.51の使用');assert.equal(await page.getByRole('checkbox').nth(10).getAttribute('aria-label'),'No.10の使用');
 
  await page.reload();await page.locator('.allocation-counts').waitFor();assert.equal(await page.getByRole('checkbox').count(),50);
- // Changing unrelated settings must not downgrade schema 4 or discard allocations.
- await route('settings');await button('通知時刻を変更').click();await page.getByLabel('通知時刻',{exact:true}).fill('1030');await button('保存する').click();await closed();assert.equal((await saved()).schemaVersion,4);
+ await button('編集').click();await page.getByLabel('番号の名称',{exact:true}).fill('端末');await button('保存する').click();await closed();
+ // Changing unrelated settings must not downgrade schema 5 or discard allocations.
+ await route('settings');await button('通知時刻を変更').click();await page.getByLabel('通知時刻',{exact:true}).fill('1030');await button('保存する').click();await closed();assert.equal((await saved()).schemaVersion,5);
  const before=await saved(),download=page.waitForEvent('download');await button('JSONを書き出す').click();const file=await download,downloadPath=await file.path();
  await page.locator('#import-file').setInputFiles(downloadPath);await page.getByRole('dialog').filter({hasText:'利用枠管理 1件'}).waitFor();await button('追加する').click();await closed();assert.equal((await saved()).allocationLists.length,2);
- const after=await saved();assert.deepEqual(after.allocationLists[1].assignments,before.allocationLists[0].assignments);assert.notEqual(after.allocationLists[1].id,id);assert.equal(after.settings.expiryNotificationTime,'10:30');
+ const after=await saved();assert.deepEqual(after.allocationLists[1].assignments,before.allocationLists[0].assignments);assert.equal(after.allocationLists[1].slotName,'端末');assert.notEqual(after.allocationLists[1].id,id);assert.equal(after.settings.expiryNotificationTime,'10:30');
  await route(path);await button('利用枠管理を削除').click();await button('キャンセル').click();await closed();assert.equal((await saved()).allocationLists.length,2);
  await button('利用枠管理を削除').click();await button('削除する').click();await closed();assert.equal((await saved()).allocationLists.length,1);
  await route('allocation/'+after.allocationLists[1].id);await page.evaluate(()=>navigator.serviceWorker.ready);await page.reload();await context.setOffline(true);await page.reload();await page.locator('.allocation-counts').waitFor();assert.match(await page.locator('.allocation-counts').textContent(),/保有 1000/);await context.setOffline(false);

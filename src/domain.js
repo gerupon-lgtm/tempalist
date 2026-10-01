@@ -243,12 +243,13 @@ export function emptyState() {
 
 export function validateState(value) {
   const source = requireObject(value, 'データ');
-  if (![1,2,3,4].includes(source.schemaVersion)) fail('未対応のデータ形式です');
+  if (![1,2,3,4,5].includes(source.schemaVersion)) fail('未対応のデータ形式です');
   if(source.schemaVersion===1&&source.managementLists!==undefined) fail('管理リストには新版のデータ形式が必要です');
   if (!Number.isInteger(source.revision) || source.revision < 0) fail('リビジョンが不正です');
   if (!Array.isArray(source.templates) || !Array.isArray(source.checklists)) fail('保存データが不正です');
   if(source.schemaVersion<3&&(source.settings?.expiryNotificationTime!==undefined||(source.managementLists??[]).some(list=>list.notificationEnabled!==undefined||list.items?.some(item=>item.expiryDate!==undefined))))fail('消費期限には新版のデータ形式が必要です');
   if(source.schemaVersion<4&&source.allocationLists!==undefined)fail('利用枠管理には新版のデータ形式が必要です');
+  if(source.schemaVersion<5&&(source.allocationLists??[]).some(list=>list.slotName!==undefined))fail('番号の名称には新版のデータ形式が必要です');
   const templates = source.templates.map(sanitizeTemplate);
   const checklists = source.checklists.map(sanitizeChecklist);
   uniqueIds(templates, 'テンプレート');

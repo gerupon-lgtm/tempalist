@@ -54,7 +54,7 @@ it('backs up expiry, imports notification OFF and preserves destination common t
  const {state}=fixture();state.settings.expiryNotificationTime='10:30';const parsed=parseTransfer(exportBackup(state));
  const dest={...domain.emptyState(),schemaVersion:3,managementLists:[],settings:{completedRetention:'90d',expiryNotificationTime:'08:00'}};
  const imported=importBackup(dest,parsed);expect(imported.schemaVersion).toBe(3);expect(itemOf(imported).expiryDate).toBe('2026-09-20');expect(imported.managementLists[0].notificationEnabled).toBe(false);expect(imported.settings.expiryNotificationTime).toBe('08:00');
- expect(()=>domain.validateState({...state,schemaVersion:2})).toThrow();expect(()=>parseTransfer(JSON.stringify({...parsed,schemaVersion:5}))).toThrow();
+ expect(()=>domain.validateState({...state,schemaVersion:2})).toThrow();expect(()=>parseTransfer(JSON.stringify({...parsed,schemaVersion:6}))).toThrow();
 });
 
 it('isolates a missing calendar day or year boundary without blocking other reminders',()=>{

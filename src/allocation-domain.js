@@ -16,13 +16,13 @@ export function sanitizeAllocationLists(value){
    if(!entry||!Number.isSafeInteger(entry.slot)||entry.slot<1||entry.slot>total||slots.has(entry.slot))fail('利用枠の割り当てが不正です');slots.add(entry.slot);
    return {slot:entry.slot,assignee:text(entry.assignee,'割り当て先')};
   }).sort((a,b)=>a.slot-b.slot);
-  return {id:list.id,name:text(list.name,'対象名'),quantity:total,assignments,revision:list.revision,createdAt:timestamp(list.createdAt),updatedAt:timestamp(list.updatedAt)};
+  return {id:list.id,name:text(list.name,'対象名'),...(list.slotName!==undefined?{slotName:text(list.slotName,'番号の名称')}:{}),quantity:total,assignments,revision:list.revision,createdAt:timestamp(list.createdAt),updatedAt:timestamp(list.updatedAt)};
  });
 }
 export const allocationCounts=list=>({total:list.quantity,used:list.assignments.length,available:list.quantity-list.assignments.length});
-function save(state,lists){return {...state,schemaVersion:4,managementLists:state.managementLists??[],allocationLists:sanitizeAllocationLists(lists)};}
-export function createAllocationList(state,{name,quantity:total},now=new Date().toISOString()){
- return save(state,[...(state.allocationLists??[]),{id:crypto.randomUUID(),name,quantity:quantity(total),assignments:[],revision:0,createdAt:now,updatedAt:now}]);
+function save(state,lists){return {...state,schemaVersion:Math.max(state.schemaVersion,lists.some(list=>list.slotName!==undefined)?5:4),managementLists:state.managementLists??[],allocationLists:sanitizeAllocationLists(lists)};}
+export function createAllocationList(state,{name,quantity:total,slotName},now=new Date().toISOString()){
+ return save(state,[...(state.allocationLists??[]),{id:crypto.randomUUID(),name,...(slotName!==undefined?{slotName}:{}),quantity:quantity(total),assignments:[],revision:0,createdAt:now,updatedAt:now}]);
 }
 function change(state,id,expectedRevision,mutate,now){
  const lists=sanitizeAllocationLists(state.allocationLists??[]),list=lists.find(entry=>entry.id===id);
@@ -31,7 +31,7 @@ function change(state,id,expectedRevision,mutate,now){
  const updated=mutate(list);
  return save(state,updated===null?lists.filter(entry=>entry.id!==id):lists.map(entry=>entry.id===id?{...updated,revision:list.revision+1,updatedAt:now}:entry));
 }
-export function updateAllocationList(state,id,{name,quantity:total},expectedRevision,now=new Date().toISOString()){
+export function updateAllocationList(state,id,{name,quantity:total,slotName},expectedRevision,now=new Date().toISOString()){
  quantity(total);
  return change(state,id,expectedRevision,list=>{
   if(total<list.assignments.length)fail(`現在${list.assignments.length}枠が使用中です。先に使用を解除してから保有数を減らしてください。`);
@@ -41,7 +41,7 @@ export function updateAllocationList(state,id,{name,quantity:total},expectedRevi
    while(occupied.has(vacant))vacant++;
    retained.push({...entry,slot:vacant});occupied.add(vacant);
   }
-  return {...list,name,quantity:total,assignments:retained};
+  return {...list,name,...(slotName!==undefined?{slotName}:{}),quantity:total,assignments:retained};
  },now);
 }
 export function assignAllocation(state,id,slot,assignee,expectedRevision,now=new Date().toISOString()){
