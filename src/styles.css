@@ -164,7 +164,7 @@ main>.collection-heading h1{font-size:clamp(1rem,4.6vw,1.25rem);margin-bottom:6p
 
 .management-mode-fields{margin:0;padding:0;border:0;min-width:0}
 .management-mode-fields[hidden]{display:none}
-.allocation-counts{padding:16px;margin-bottom:16px;border:1px solid var(--line);border-radius:14px;background:var(--surface);font-weight:600;overflow-wrap:anywhere}
+.allocation-counts{padding:16px;margin-bottom:16px;border:1px solid var(--line);border-radius:14px;background:var(--brand-soft);border-color:var(--brand);font-weight:500;overflow-wrap:anywhere}
 .allocation-used{background:var(--brand-soft)}
 .allocation-assignee{display:block;font-size:.9rem;white-space:pre-wrap;overflow-wrap:anywhere}
 .allocation-state{font-size:.75rem;color:var(--muted);flex-shrink:0}
@@ -173,3 +173,11 @@ main>.collection-heading h1{font-size:clamp(1rem,4.6vw,1.25rem);margin-bottom:6p
 
 .allocation-controls{display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex-shrink:0}
 .allocation-edit{min-height:44px;padding:6px 8px;font-size:.75rem;white-space:nowrap}
+
+.allocation-available{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;color:var(--ink)}
+.allocation-available strong{font-size:2.25rem;line-height:1.2;font-weight:700;overflow-wrap:anywhere;min-width:0}
+.allocation-capacity{font-size:.85rem;color:var(--muted);margin:8px 0 0}
+.allocation-availability{font-size:.8rem;margin:4px 0 0}
+.allocation-full{background:var(--surface);border-color:var(--line)}
+.allocation-overview-available{display:block;font-size:.9rem;margin-top:8px;color:var(--ink)}
+.allocation-overview-available strong{font-size:1.5rem;font-weight:700}

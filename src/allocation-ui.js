@@ -15,14 +15,15 @@ export function createAllocationUI({main,getState,commit,go}){
   const freeSlot=rank=>{let slot=rank+1;for(const used of occupied){if(used>slot)break;slot++;}return slot;};
   const orderedSlot=index=>order==='free'?(index<freeCount?freeSlot(index):occupied[index-freeCount]):order==='used'?(index<occupied.length?occupied[index]:freeSlot(index-occupied.length)):index+1;
   const start=page*pageSize,length=Math.min(pageSize,list.quantity-start),assignments=new Map(list.assignments.map(entry=>[entry.slot,entry.assignee]));
+  const counts=model.allocationCounts(list);
   return `<a class="back" href="#/management">${icon('back',16)} 管理一覧に戻る</a>`+heading(list.name,'チェックして割り当て先を入力。解除すると空きに戻ります。',button('edit','編集','detail-edit'),'detail-heading')+
-   `<div class="allocation-counts" role="status" aria-label="利用状況">${allocationSummary(list)}</div>`+
-   field('表示順',`<select data-allocation-order aria-label="利用枠の表示順"><option value="slot" ${order==='slot'?'selected':''}>枠番号順</option><option value="free" ${order==='free'?'selected':''}>空きが上</option><option value="used" ${order==='used'?'selected':''}>使用中が上</option></select>`)+
+   `<div class="allocation-counts ${counts.available===0?'allocation-full':''}" role="status" aria-label="利用状況"><div class="allocation-available"><span>空き</span><strong data-available-count>${counts.available}</strong><span>件</span></div><p class="allocation-capacity">保有 ${counts.total} ／ 使用中 ${counts.used}</p><p class="allocation-availability">${counts.available>0?'使用できます':counts.total>0?'すべて使用中です':'保有数を設定してください'}</p></div>`+
+   field('表示順',`<select data-allocation-order aria-label="利用状況の表示順"><option value="slot" ${order==='slot'?'selected':''}>番号順</option><option value="free" ${order==='free'?'selected':''}>空きが上</option><option value="used" ${order==='used'?'selected':''}>使用中が上</option></select>`)+
    (list.quantity?`<ol class="items allocation-items" start="${start+1}">${Array.from({length},(_,index)=>{
     const slot=orderedSlot(start+index),assignee=assignments.get(slot);
-    return `<li class="item-row ${assignee?'allocation-used':''}"><label class="row-check"><input type="checkbox" data-allocation-slot="${slot}" aria-label="枠${slot}の使用" ${assignee?'checked':''}></label><div class="item-copy"><span class="item-label">枠${slot}</span><span class="allocation-assignee">${assignee?e(assignee):'空き'}</span></div><div class="allocation-controls"><span class="allocation-state">${assignee?'使用中':'未使用'}</span>${assignee?button('edit-assignee','名前を編集','allocation-edit',`data-slot="${slot}" aria-label="枠${slot}の割り当て先を編集"`):''}</div></li>`;
+    return `<li class="item-row ${assignee?'allocation-used':''}"><label class="row-check"><input type="checkbox" data-allocation-slot="${slot}" aria-label="No.${slot}の使用" ${assignee?'checked':''}></label><div class="item-copy"><span class="item-label">No.${slot}</span><span class="allocation-assignee">${assignee?e(assignee):'空き'}</span></div><div class="allocation-controls"><span class="allocation-state">${assignee?'使用中':'未使用'}</span>${assignee?button('edit-assignee','名前を編集','allocation-edit',`data-slot="${slot}" aria-label="No.${slot}の割り当て先を編集"`):''}</div></li>`;
    }).join('')}</ol>`:'<div class="empty-state"><h2>保有数は0です</h2><p>「編集」で保有数を増やすと、利用枠が表示されます。</p></div>')+
-   (list.quantity>pageSize?`<nav class="allocation-pages" aria-label="利用枠のページ">${button('previous','前へ','',page===0?'disabled':'')}<span>${start+1}〜${start+length} / ${list.quantity}枠</span>${button('next','次へ','',page===lastPage?'disabled':'')}</nav>`:'')+
+   (list.quantity>pageSize?`<nav class="allocation-pages" aria-label="利用状況のページ">${button('previous','前へ','',page===0?'disabled':'')}<span>${start+1}〜${start+length} / ${list.quantity}件</span>${button('next','次へ','',page===lastPage?'disabled':'')}</nav>`:'')+
    `<div class="detail-bottom">${button('delete','利用枠管理を削除','danger-link')}</div>`;
  }
  main.addEventListener('change',event=>{
@@ -35,9 +36,9 @@ export function createAllocationUI({main,getState,commit,go}){
   const slot=Number(node.dataset.allocationSlot),assignment=list.assignments.find(entry=>entry.slot===slot);
   node.checked=Boolean(assignment); // Persist only after the dialog succeeds; cancellation changes nothing.
   if(assignment){
-   openDialog('使用を解除',`<p>枠${slot}の「${e(assignment.assignee)}」をクリアして、空きに戻します。</p>`,{submit:'解除する',lockWhileSaving:true,onSubmit:async()=>{await commit(state=>model.releaseAllocation(state,list.id,slot,list.revision));toast('使用を解除しました');}});
+   openDialog('使用を解除',`<p>No.${slot}の「${e(assignment.assignee)}」をクリアして、空きに戻します。</p>`,{submit:'解除する',lockWhileSaving:true,onSubmit:async()=>{await commit(state=>model.releaseAllocation(state,list.id,slot,list.revision));toast('使用を解除しました');}});
   }else{
-   openDialog('使用を開始',`<p>枠${slot}の割り当て先を入力してください。</p>`+field('割り当て先','<input name="assignee" required autocomplete="off" placeholder="人名・部署・端末名など">'),{submit:'使用する',lockWhileSaving:true,onSubmit:async form=>{await commit(state=>model.assignAllocation(state,list.id,slot,form.get('assignee'),list.revision));toast('割り当て先を保存しました');}});
+   openDialog('使用を開始',`<p>No.${slot}の割り当て先を入力してください。</p>`+field('割り当て先','<input name="assignee" required autocomplete="off" placeholder="人名・部署・端末名など">'),{submit:'使用する',lockWhileSaving:true,onSubmit:async form=>{await commit(state=>model.assignAllocation(state,list.id,slot,form.get('assignee'),list.revision));toast('割り当て先を保存しました');}});
   }
  });
  main.addEventListener('click',event=>{
@@ -49,10 +50,10 @@ export function createAllocationUI({main,getState,commit,go}){
   }
   if(action==='edit-assignee'){
    const slot=Number(node.dataset.slot),assignment=list.assignments.find(entry=>entry.slot===slot);if(!assignment)return;
-   openDialog('割り当て先を編集',`<p>枠${slot}の使用者・端末名を変更します。使用中の状態は維持します。</p>`+field('割り当て先',`<input name="assignee" value="${e(assignment.assignee)}" required autocomplete="off">`),{lockWhileSaving:true,onSubmit:async form=>{await commit(state=>model.updateAllocationAssignee(state,list.id,slot,form.get('assignee'),list.revision));toast('割り当て先を更新しました');}});
+   openDialog('割り当て先を編集',`<p>No.${slot}の使用者・端末名を変更します。使用中の状態は維持します。</p>`+field('割り当て先',`<input name="assignee" value="${e(assignment.assignee)}" required autocomplete="off">`),{lockWhileSaving:true,onSubmit:async form=>{await commit(state=>model.updateAllocationAssignee(state,list.id,slot,form.get('assignee'),list.revision));toast('割り当て先を更新しました');}});
    return;
   }
-  if(action==='edit')openDialog('利用枠管理を編集',allocationFields(list.name,list.quantity)+'<p class="secondary-text">保有数を減らすと空き枠から減らします。使用中の割り当ては保持します。枠番号が変わる場合があります。</p>',{lockWhileSaving:true,onSubmit:form=>commit(state=>model.updateAllocationList(state,list.id,{name:form.get('allocationName'),quantity:Number(form.get('quantity'))},list.revision))});
+  if(action==='edit')openDialog('利用枠管理を編集',allocationFields(list.name,list.quantity)+'<p class="secondary-text">保有数を減らすと空き枠から減らします。使用中の割り当ては保持します。番号が変わる場合があります。</p>',{lockWhileSaving:true,onSubmit:form=>commit(state=>model.updateAllocationList(state,list.id,{name:form.get('allocationName'),quantity:Number(form.get('quantity'))},list.revision))});
   if(action==='delete')openDialog('利用枠管理を削除',`<p>「${e(list.name)}」と現在の割り当て${list.assignments.length}件を削除します。この操作は取り消せません。</p>`,{submit:'削除する',destructive:true,lockWhileSaving:true,onSubmit:async()=>{await commit(state=>model.deleteAllocationList(state,list.id,list.revision));go('management');}});
  });
  return {html};
