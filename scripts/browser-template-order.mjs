@@ -39,7 +39,7 @@ try{
  console.log('Arrows and statuses passed');
  // Long press lifts the same translucent preview used for checklist items.
  let p=await start();await page.locator('.drag-preview').waitFor();
- const ghost=await page.locator('.drag-preview').boundingBox();
+ const ghost=await page.locator('.drag-preview').boundingBox(),source=await row(0).boundingBox();assert.ok(Math.abs(ghost.x-source.x)<2&&Math.abs(ghost.y-source.y)<2);assert.equal(await page.locator('.drag-preview').evaluate(n=>getComputedStyle(n).position),'fixed');
  const target=await row(1).boundingBox();await touch('touchMove',p.x,target.y+target.height-10);
  assert.ok((await page.locator('.drag-preview').boundingBox()).y>ghost.y+30);
  assert.equal(await page.locator('[data-drop]').count(),1);
