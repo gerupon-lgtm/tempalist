@@ -37,7 +37,8 @@ export function templates(state,tab) {
   const shown=state.templates.filter(t=>t.status===tab);
   return heading('テンプレート','繰り返す段取りを、自分の型に。',button('new-template','新しく作る','primary'),'collection-heading')+
     `<div class="tabs" role="tablist" aria-label="テンプレートの状態">${Object.entries(statusName).map(([s,n])=>button('template-tab',`${n} <span class="count">${state.templates.filter(t=>t.status===s).length}</span>`,'',`role="tab" aria-selected="${s===tab}" data-value="${s}"`)).join('')}</div>`+
-    `<div class="list-stack">${shown.map(t=>`<a class="list-card" href="#/template/${t.id}"><div class="card-copy"><h2>${e(t.name)}</h2><span class="meta-line">${t.items.length}項目 · 更新 ${e(formatDateTime(t.updatedAt,{dateOnly:true}))}</span></div>${icon('arrow')}</a>`).join('')||`<div class="empty-state"><h2>${statusName[tab]}のテンプレートはありません</h2>${button('new-template','テンプレートを作る','primary')}</div>`}</div>`;
+    (shown.length>1?'<p class="reorder-hint">カードを長押しして移動 ／ 右端の↑↓でも移動</p>':'')+
+    `<div class="list-stack">${shown.map((t,index)=>`<div class="list-card template-reorder-card reorderable" data-index="${index}" data-template="${t.id}"><a class="template-card-link" href="#/template/${t.id}"><div class="card-copy"><h2>${e(t.name)}</h2><span class="meta-line">${t.items.length}項目 · 更新 ${e(formatDateTime(t.updatedAt,{dateOnly:true}))}</span></div>${icon('arrow')}</a><div class="row-controls row-stepper">${button('template-up',icon('up',18),'step-button',`aria-label="上へ" title="上へ" ${index===0?'disabled':''}`)}${button('template-down',icon('down',18),'step-button',`aria-label="下へ" title="下へ" ${index===shown.length-1?'disabled':''}`)}</div></div>`).join('')||`<div class="empty-state"><h2>${statusName[tab]}のテンプレートはありません</h2>${button('new-template','テンプレートを作る','primary')}</div>`}</div>`;
 }
 function orderLockControl(entity,kind) {
   const template=kind==='template',on=template?entity.defaultOrderLocked:entity.orderLocked;

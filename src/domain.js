@@ -442,6 +442,17 @@ export function toggleItem(state, checklistId, itemId, now) {
   return { ...next, checklists: replaceById(next.checklists, checklistId, updated) };
 }
 
+export function reorderTemplates(state,status,fromIndex,toIndex,expectedIds) {
+  const next=existingState(state);
+  if(!['active','draft','archived'].includes(status))fail('テンプレートの状態が不正です');
+  const shown=next.templates.filter(template=>template.status===status);
+  if(!Array.isArray(expectedIds)||expectedIds.length!==shown.length||shown.some((template,index)=>template.id!==expectedIds[index]))fail('別の画面でテンプレート一覧が更新されました。画面を開き直してください。');
+  if(!Number.isInteger(fromIndex)||!Number.isInteger(toIndex)||fromIndex<0||toIndex<0||fromIndex>=shown.length||toIndex>=shown.length)fail('並べ替え位置が不正です');
+  const [moved]=shown.splice(fromIndex,1);shown.splice(toIndex,0,moved);
+  let index=0;
+  return {...next,templates:next.templates.map(template=>template.status===status?shown[index++]:template)};
+}
+
 export function reorderItems(state, kind, id, fromIndex, toIndex, now) {
   const next = existingState(state);
   requireUuid(id, '対象ID');

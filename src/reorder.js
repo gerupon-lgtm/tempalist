@@ -1,10 +1,10 @@
 // Touch Events let a pending press remain native scrolling until the card is lifted.
-export function attachReorder(container, move) {
-  let active=null,timer=0,frame=0;
-  const excluded='.row-check,.row-controls,input,button,a,label,summary,details';
+export function attachReorder(container, move, {rowSelector='.item-row[data-index]',allowLinks=false}={}) {
+  let active=null,timer=0,frame=0,blockClick=false,clickTimer=0;
+  const excluded='.row-check,.row-controls,input,button,label,summary,details'+(allowLinks?'':',a');
   function rowAt(target) {
     if(target.closest(excluded))return null;
-    return target.closest('.item-row[data-index]');
+    return target.closest(rowSelector);
   }
   function stop() {
     clearTimeout(timer);cancelAnimationFrame(frame);
@@ -12,6 +12,7 @@ export function attachReorder(container, move) {
     container.querySelectorAll('[data-drop]').forEach(row=>delete row.dataset.drop);
     previous?.row.classList.remove('dragging','drag-pending');
     previous?.ghost?.remove();
+    if(allowLinks&&previous?.ghost){clearTimeout(clickTimer);clickTimer=setTimeout(()=>{blockClick=false;},500);}
     if(previous?.input==='pointer'&&previous.row.hasPointerCapture(previous.id))previous.row.releasePointerCapture(previous.id);
   }
   function target() {
@@ -34,6 +35,7 @@ export function attachReorder(container, move) {
     if(!active)return;
     container.dispatchEvent(new Event('card-gesture-consumed'));
     const {row}=active,rect=row.getBoundingClientRect();
+    if(allowLinks){blockClick=true;if(active.input==='pointer')row.setPointerCapture(active.id);}
     const ghost=row.cloneNode(true);
     ghost.classList.remove('drag-pending');ghost.classList.add('drag-preview');
     ghost.removeAttribute('data-index');ghost.removeAttribute('data-item');
@@ -63,11 +65,11 @@ export function attachReorder(container, move) {
     if(event.pointerType==='touch'||active||event.button!==0)return;
     const row=rowAt(event.target);if(!row)return;
     begin(row,'pointer',event.pointerId,event.clientX,event.clientY);
-    row.setPointerCapture(event.pointerId);event.preventDefault();
+    if(!allowLinks){row.setPointerCapture(event.pointerId);event.preventDefault();}
   }
   function pointerMove(event) {
     if(active?.input!=='pointer'||event.pointerId!==active.id)return;
-    moving(event.clientX,event.clientY);event.preventDefault();
+    moving(event.clientX,event.clientY);if(!allowLinks||active?.ghost)event.preventDefault();
   }
   function up(event){if(active?.input==='pointer'&&event.pointerId===active.id)finish();}
   function cancel(event){if(active?.input==='pointer'&&event.pointerId===active.id)stop();}
@@ -91,11 +93,17 @@ export function attachReorder(container, move) {
   function touchCancel(){if(active?.input==='touch')stop();}
   function escape(event){if(event.key==='Escape')stop();}
   function contextMenu(event){if(rowAt(event.target))event.preventDefault();}
-  const listeners={pointerdown:down,pointermove:pointerMove,pointerup:up,pointercancel:cancel,lostpointercapture:cancel,touchstart:touchStart,touchmove:touchMove,touchend:touchEnd,touchcancel:touchCancel,contextmenu:contextMenu};
+  function nativeDrag(event){if(rowAt(event.target))event.preventDefault();}
+  function click(event){if(blockClick){event.preventDefault();event.stopPropagation();blockClick=false;clearTimeout(clickTimer);}}
+  container.addEventListener('click',click,true);
+  const listeners={pointerdown:down,lostpointercapture:cancel,touchstart:touchStart,touchmove:touchMove,touchend:touchEnd,touchcancel:touchCancel,contextmenu:contextMenu,dragstart:nativeDrag};
   Object.entries(listeners).forEach(([type,listener])=>container.addEventListener(type,listener,{passive:false}));
+  const pointerListeners={pointermove:pointerMove,pointerup:up,pointercancel:cancel};
+  Object.entries(pointerListeners).forEach(([type,listener])=>document.addEventListener(type,listener,{passive:false}));
   document.addEventListener('keydown',escape);window.addEventListener('blur',stop);
   return ()=>{
-    stop();Object.entries(listeners).forEach(([type,listener])=>container.removeEventListener(type,listener));
+    stop();clearTimeout(clickTimer);blockClick=false;container.removeEventListener('click',click,true);Object.entries(listeners).forEach(([type,listener])=>container.removeEventListener(type,listener));
+    Object.entries(pointerListeners).forEach(([type,listener])=>document.removeEventListener(type,listener));
     document.removeEventListener('keydown',escape);window.removeEventListener('blur',stop);
   };
 }

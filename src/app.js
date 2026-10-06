@@ -179,7 +179,7 @@ function rememberChecklist(page,id){
 }
 document.querySelector('#version').textContent=`v${APP_VERSION}`;
 document.querySelector('#copyright').textContent=COPYRIGHT;
-let store,state,listTab='active',templateTab='active',stopDrag=()=>{},stopCards=()=>{},celebrate=false;
+let store,state,listTab='active',templateTab='active',stopDrag=()=>{},stopCards=()=>{},celebrate=false,templateOrder=[];
 const entityIn=(s,kind,id)=>(kind==='template'?s.templates:s.checklists).find(x=>x.id===id);
 const locationInfo=()=>{const [,page='lists',id]=location.hash.split('/');return {page,id};};
 const go=path=>{location.hash='/'+path;};
@@ -305,7 +305,12 @@ function render(){
   if(page==='allocation')main.innerHTML=allocation.html(id);
   else if(page==='lists')main.innerHTML=view.lists(state,listTab);
   else if(page==='management'||page==='actions'){main.innerHTML=management.html(page,id);stopCards=management.attach(page,id);}
-  else if(page==='templates')main.innerHTML=view.templates(state,templateTab);
+  else if(page==='templates'){
+    main.innerHTML=view.templates(state,templateTab);
+    templateOrder=state.templates.filter(template=>template.status===templateTab).map(template=>template.id);
+    const status=templateTab,expected=[...templateOrder];
+    stopDrag=attachReorder(main,(from,to)=>action(()=>commit(s=>domain.reorderTemplates(s,status,from,to,expected))),{rowSelector:'.template-reorder-card[data-index]',allowLinks:true});
+  }
   else if(page==='settings')main.innerHTML=view.settings(state,bytes,APP_VERSION);
   else if(page==='template'||page==='checklist'){
     const entity=entityIn(state,page,id);
@@ -350,6 +355,10 @@ main.addEventListener('click',event=>{
       case 'new-list':return newList();case 'from-template':return newList(node.dataset.id);
       case 'new-template':return newTemplate();
       case 'list-tab':listTab=node.dataset.value;return render();
+      case 'template-up':case 'template-down':{
+        const from=Number(node.closest('[data-template]').dataset.index),status=templateTab,expected=[...templateOrder];
+        return commit(s=>domain.reorderTemplates(s,status,from,from+(name==='template-up'?-1:1),expected));
+      }
       case 'template-tab':templateTab=node.dataset.value;return render();
       case 'edit-meta':return editMeta();case 'add-item':return editItem();case 'edit-item':return editItem(itemId);
       case 'toggle-order-lock':return commit(s=>kind==='template'?domain.updateTemplate(s,id,{...entityIn(s,kind,id),defaultOrderLocked:!entity.defaultOrderLocked}):domain.updateChecklist(s,id,{orderLocked:!entity.orderLocked}));
