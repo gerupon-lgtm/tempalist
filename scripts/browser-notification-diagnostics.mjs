@@ -52,6 +52,8 @@ try{
  const accepted=await report();assert.equal(accepted.pending,0);assert.equal(accepted.events.filter(e=>e.event==='accepted').length,3);
  assert.deepEqual(accepted.reservations.map(r=>r.reminderId),failed.reservations.map(r=>r.reminderId));
  assert.doesNotMatch(JSON.stringify(accepted),/PRIVATE|deviceId|deviceSecret|endpoint|p256dh/);
+ await page.evaluate(()=>navigator.serviceWorker.ready);
+ await context.serviceWorkers()[0].evaluate(()=>{self.registration.showNotification=async()=>{};});
  await page.getByRole('button',{name:'通知の表示テスト',exact:true}).click();
  await page.locator('[data-display-test-result]').filter({hasText:/表示要求/}).waitFor();
  const shown=await report();assert.equal(shown.browser.pushEvents.at(-1).source,'local-test');assert.ok(['display-accepted','display-failed'].includes(shown.browser.pushEvents.at(-1).event));

@@ -75,7 +75,8 @@ try{
  assert.ok(registrationId);
  const reminderId=first.maps[0].reminderId;
  const worker=context.serviceWorkers()[0];
- await worker.evaluate(()=>{const original=self.registration.showNotification.bind(self.registration);self.registration.showNotification=async(title,options)=>{self.observedNotification={title,body:options.body,data:options.data};try{await original(title,options);self.observedNotification.result='accepted';}catch(e){self.observedNotification.result=e.name;}};});
+ // Observe the real worker's display request without presenting OS notifications.
+ await worker.evaluate(()=>{self.registration.showNotification=async(title,options)=>{self.observedNotification={title,body:options.body,data:options.data,result:'accepted'};};});
  await cdp.send('ServiceWorker.deliverPushMessage',{origin:'http://127.0.0.1:4173',registrationId,data:JSON.stringify({version:2,appId:'tempalist',type:'reminder_due',reminderId,notificationKey:'deadline_advance',routeKey:'list',groupId:'0123456789abcdef'})});
  let notification;
  for(let attempt=0;attempt<30&&!notification;attempt++){

@@ -18,12 +18,13 @@ export function formatDateTimeEntry(value,kind,{deleting=false}={}){
 function inputField(kind,label,value,placeholder,pickerLabel){
  return `<div class="field date-time-field"><label for="deadline-${kind}">${label}</label><div class="input-with-picker"><input id="deadline-${kind}" name="${kind}" value="${e(value)}" placeholder="${placeholder}" inputmode="numeric" autocomplete="off" aria-describedby="deadline-input-help"><button type="button" data-open-picker="${kind}" aria-label="${pickerLabel}" title="${pickerLabel}">${icon(kind==='date'?'calendar':'clock')}</button><input type="${kind}" class="native-picker" data-picker="${kind}" aria-label="${kind==='date'?'日付':'時刻'}ピッカー" tabindex="-1"></div></div>`;
 }
+function localToday(){return deadlineFields(new Date().toISOString()).date;}
 export function deadlineForm(entity={dueAt:null,dueHasTime:false}){
  const {date,time}=deadlineFields(entity.dueAt,entity.dueHasTime);
- return `<div class="form-grid deadline-fields">${inputField('date','期限の日付',date.replaceAll('-','/'),'2026/09/10','カレンダーを開く')}${inputField('time','時刻',time,'09:00','時計を開く')}</div><p id="deadline-input-help" class="secondary-text">数字を入力すると /・: を補います。右端のアイコンからも選べます。時刻省略時は09:00です。${e(getTimeZone())}</p>`;
+ return `<div class="form-grid deadline-fields">${inputField('date','期限の日付',date.replaceAll('-','/'),localToday().replaceAll('-','/'),'カレンダーを開く')}${inputField('time','時刻',time,'09:00','時計を開く')}</div><p id="deadline-input-help" class="secondary-text">数字を入力すると /・: を補います。右端のアイコンからも選べます。時刻省略時は09:00です。${e(getTimeZone())}</p>`;
 }
 export function expiryDateForm(value=null){
- return inputField('date','消費期限（任意）',(value??'').replaceAll('-','/'),'YYYY/MM/DD','カレンダーを開く')+'<p id="deadline-input-help" class="secondary-text">未入力なら期限なしです。数字を入力すると / を補います。</p>';
+ return inputField('date','消費期限（任意）',(value??'').replaceAll('-','/'),localToday().replaceAll('-','/'),'カレンダーを開く')+'<p id="deadline-input-help" class="secondary-text">未入力なら期限なしです。数字を入力すると / を補います。</p>';
 }
 export function expiryTimeForm(value='09:00'){
  return inputField('time','通知時刻',value,'09:00','時計を開く')+`<p id="deadline-input-help" class="secondary-text">すべての管理リストで共通です。前日・当日にこの時刻で通知します。${e(getTimeZone())}</p>`;
@@ -55,6 +56,7 @@ export function bindPickers(root){
   let selectTimer;
   function cancelSelection(){clearTimeout(selectTimer);timers.delete(selectTimer);selectTimer=undefined;}
   listen(input,'focus',()=>{
+   if(kind==='date')input.placeholder=localToday().replaceAll('-','/');
    cancelSelection();
    // Match Atoqueue: select after focus, without selecting again on click.
    selectTimer=setTimeout(()=>{
@@ -79,6 +81,13 @@ export function bindPickers(root){
    input.dispatchEvent(new Event('change',{bubbles:true}));
   });
   function seedPicker(){
+   if(kind==='date'){
+    const today=localToday();input.placeholder=today.replaceAll('-','/');
+    if(input.value===''){
+     input.value=today.replaceAll('-','/');
+     input.dispatchEvent(new input.ownerDocument.defaultView.Event('change',{bubbles:true}));
+    }
+   }
    const normalized=formatDateTimeEntry(input.value,kind);
    picker.value=kind==='date'?normalized.replaceAll('/','-'):normalized;
   }

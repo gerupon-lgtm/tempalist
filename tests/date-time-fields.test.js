@@ -1,8 +1,37 @@
 import {beforeEach,afterEach,it,expect,vi} from 'vitest';
-import {deadlineForm,bindPickers} from '../src/date-time-fields.js';
+import {deadlineForm,expiryDateForm,bindPickers} from '../src/date-time-fields.js';
 import {openDialog} from '../src/ui.js';
 beforeEach(()=>{document.body.innerHTML='<div id="fields">'+deadlineForm()+'</div>';bindPickers(document.querySelector('#fields'));});
-afterEach(()=>{document.querySelector('#fields')?.dispatchEvent(new Event('dialog-dispose'));vi.useRealTimers();});
+afterEach(()=>{document.querySelector('#fields')?.dispatchEvent(new Event('dialog-dispose'));vi.restoreAllMocks();vi.useRealTimers();});
+it.each([
+ ['Asia/Tokyo','2026/10/16'],
+ ['America/Los_Angeles','2026/10/15'],
+])('uses the current local date in %s without assigning an optional deadline on render',(zone,expected)=>{
+ vi.useFakeTimers();vi.setSystemTime(new Date('2026-10-15T15:30:00.000Z'));
+ const Original=Intl.DateTimeFormat;
+ vi.spyOn(Intl,'DateTimeFormat').mockImplementation(function(locale,options){return new Original(locale,{timeZone:zone,...options});});
+ for(const form of [deadlineForm,expiryDateForm]){
+  const root=document.querySelector('#fields');root.dispatchEvent(new Event('dialog-dispose'));root.innerHTML=form();bindPickers(root);
+  const input=root.querySelector('[name=date]'),picker=root.querySelector('[data-picker=date]');picker.showPicker=vi.fn();
+  expect(input.value).toBe('');expect(input.placeholder).toBe(expected);
+  const changed=vi.fn();input.addEventListener('change',changed);
+  root.querySelector('[data-open-picker=date]').click();
+  expect(picker.value).toBe(expected.replaceAll('/','-'));expect(input.value).toBe(expected);expect(changed).toHaveBeenCalledOnce();
+ }
+});
+it('refreshes the current local date when an empty calendar is opened after midnight',()=>{
+ vi.useFakeTimers();vi.setSystemTime(new Date('2026-10-15T14:59:00.000Z'));
+ const Original=Intl.DateTimeFormat;
+ vi.spyOn(Intl,'DateTimeFormat').mockImplementation(function(locale,options){return new Original(locale,{timeZone:'Asia/Tokyo',...options});});
+ const root=document.querySelector('#fields');root.dispatchEvent(new Event('dialog-dispose'));root.innerHTML=deadlineForm();bindPickers(root);
+ const input=root.querySelector('[name=date]'),picker=root.querySelector('[data-picker=date]');picker.showPicker=vi.fn();
+ expect(input.placeholder).toBe('2026/10/15');
+ vi.setSystemTime(new Date('2026-10-15T15:01:00.000Z'));
+ root.querySelector('[data-open-picker=date]').click();
+ expect(picker.value).toBe('2026-10-16');expect(input.value).toBe('2026/10/16');expect(input.placeholder).toBe('2026/10/16');
+ input.value='20260230';root.querySelector('[data-open-picker=date]').click();
+ expect(input.value).toBe('20260230');expect(picker.value).toBe('');
+});
 function enter(input,value,inputType='insertText',caret=value.length){input.value=value;input.setSelectionRange(caret,caret);input.dispatchEvent(new InputEvent('input',{bubbles:true,inputType}));}
 it('adds separators immediately after the year, month, and hour while typing',()=>{
  const date=document.querySelector('[name=date]'),time=document.querySelector('[name=time]');
@@ -80,8 +109,9 @@ it('formats valid typed dates and times while keeping invalid input available to
  time.value='2560';time.dispatchEvent(new Event('blur'));expect(time.value).toBe('2560');
 });
 it('does not reuse an earlier picker value after keyboard input is cleared or invalid',()=>{
+ vi.useFakeTimers();vi.setSystemTime(new Date('2026-10-16T12:00:00.000Z'));
  const input=document.querySelector('[name=date]'),picker=document.querySelector('[data-picker=date]');picker.showPicker=vi.fn();
- picker.value='2026-09-10';input.value='';document.querySelector('[data-open-picker=date]').click();expect(picker.value).toBe('');
+ picker.value='2026-09-10';input.value='';document.querySelector('[data-open-picker=date]').click();expect(picker.value).toBe('2026-10-16');expect(input.value).toBe('2026/10/16');
  input.value='20260230';document.querySelector('[data-open-picker=date]').click();expect(picker.value).toBe('');expect(input.value).toBe('20260230');
 });
 it('provides a visible native fallback when showPicker is unavailable',()=>{
